@@ -168,9 +168,11 @@ install(
 )
 
 # create and configure the unit test target
-option(BuildTests "Build the unit tests" ON)
-message("-- BuildTests is ${BuildTests}")
-if(BuildTests)
+option(BUILD_TESTS "Build the unit tests" ON)
+option(RUN_E2E_TESTS "Run e2e tests" OFF)
+message("-- BUILD_TESTS is ${BUILD_TESTS}")
+message("-- RUN_E2E_TESTS is ${RUN_E2E_TESTS}")
+if(BUILD_TESTS)
 	enable_testing()
     add_subdirectory(test)
-endif(BuildTests)
+endif(BUILD_TESTS)

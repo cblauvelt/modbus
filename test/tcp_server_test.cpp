@@ -16,8 +16,11 @@ using namespace std;
 
 const std::string DEFAULT_HOST = "127.0.0.1";
 const std::string ENV_HOST = "MODBUS_SERVER_HOST";
+const std::string ENV_SLOW_HOST = "MODBUS_SLOW_SERVER_HOST";
 const std::string DEFAULT_PORT = "503";
 const std::string ENV_PORT = "MODBUS_SERVER_PORT";
+const std::string DEFAULT_SLOW_PORT = "504";
+const std::string ENV_SLOW_PORT = "MODBUS_SLOW_SERVER_PORT";
 const std::chrono::milliseconds SERVER_WAIT = 500ms;
 
 std::optional<std::string> get_env_var(std::string const& key) {
@@ -32,6 +35,12 @@ constexpr unsigned int num_bytes(unsigned int num_coils) {
     }
 
     return nBytes;
+}
+
+awaitable<void> wait_for(std::chrono::milliseconds timeout) {
+    // wait for the server to start
+    cpool::timer timer(co_await asio::this_coro::executor);
+    co_await timer.async_wait(timeout);
 }
 
 struct request_handler {
@@ -392,7 +401,7 @@ awaitable<tcp_data_unit> slow_handler(const tcp_data_unit& requestDataUnit) {
     std::vector<uint8_t> holding_registers{0x0F, 0xF0, 0x0F, 0xF0,
                                            0x00, 0x00, 0x0F, 0xF0};
     std::vector<uint8_t> validAddresses{0x0B};
-    std::vector<uint8_t> inputs;
+    std::vector<uint8_t> inputs{0x00};
 
     if (function_code != function_code_t::read_input_registers &&
         function_code != function_code_t::read_holding_registers) {
@@ -402,40 +411,83 @@ awaitable<tcp_data_unit> slow_handler(const tcp_data_unit& requestDataUnit) {
                                exception_code_t::illegal_function));
     }
 
-    auto exec = co_await asio::this_coro::executor;
-    cpool::timer timer(exec);
     print_logging_handler(log_level::trace,
                           fmt::format("Waiting {}ms", SERVER_WAIT.count()));
-    co_await timer.async_wait(SERVER_WAIT);
+    // co_await timer.async_wait(SERVER_WAIT);
+    co_await wait_for(SERVER_WAIT);
 
-    auto optionalRequest = requestDataUnit.pdu<read_input_registers_request>();
+    if (function_code == function_code_t::read_holding_registers) {
 
-    // If the function code and the request do not agree, co_return an
-    // error
-    if (!optionalRequest) {
+        auto optionalRequest =
+            requestDataUnit.pdu<read_holding_registers_request>();
+
+        // If the function code and the request do not agree, co_return an
+        // error
+        if (!optionalRequest) {
+            co_return tcp_data_unit(
+                transaction_id,
+                exception_response(unit_id, function_code,
+                                   exception_code_t::server_device_failure));
+        }
+
+        auto request = optionalRequest.value();
+        auto requestBitmap =
+            create_request_bit_map(request.start_address, request.length);
+
+        // Check if any requested addresses are illegal
+        if (!legal_address(validAddresses, requestBitmap,
+                           request.start_address)) {
+            co_return tcp_data_unit(
+                transaction_id,
+                exception_response(unit_id, function_code,
+                                   exception_code_t::illegal_data_address));
+        }
+
+        inputs = copy_data_registers(holding_registers, request.start_address,
+                                     request.length);
+
         co_return tcp_data_unit(
             transaction_id,
-            exception_response(unit_id, function_code,
-                               exception_code_t::server_device_failure));
-    }
+            read_holding_registers_response(unit_id, std::move(inputs)));
+    } else if (function_code == function_code_t::read_input_registers) {
 
-    auto request = optionalRequest.value();
-    auto requestBitmap =
-        create_request_bit_map(request.start_address, request.length);
+        auto optionalRequest =
+            requestDataUnit.pdu<read_input_registers_request>();
 
-    // Check if any requested addresses are illegal
-    if (!legal_address(validAddresses, requestBitmap, request.start_address)) {
+        // If the function code and the request do not agree, co_return an
+        // error
+        if (!optionalRequest) {
+            co_return tcp_data_unit(
+                transaction_id,
+                exception_response(unit_id, function_code,
+                                   exception_code_t::server_device_failure));
+        }
+
+        auto request = optionalRequest.value();
+        auto requestBitmap =
+            create_request_bit_map(request.start_address, request.length);
+
+        // Check if any requested addresses are illegal
+        if (!legal_address(validAddresses, requestBitmap,
+                           request.start_address)) {
+            co_return tcp_data_unit(
+                transaction_id,
+                exception_response(unit_id, function_code,
+                                   exception_code_t::illegal_data_address));
+        }
+
+        inputs = copy_data_registers(input_registers, request.start_address,
+                                     request.length);
+
         co_return tcp_data_unit(
             transaction_id,
-            exception_response(unit_id, function_code,
-                               exception_code_t::illegal_data_address));
+            read_input_registers_response(unit_id, std::move(inputs)));
     }
 
-    inputs = copy_data_registers(input_registers, request.start_address,
-                                 request.length);
-
-    co_return tcp_data_unit(transaction_id, read_input_registers_response(
-                                                unit_id, std::move(inputs)));
+    co_return tcp_data_unit(
+        transaction_id,
+        exception_response(unit_id, function_code,
+                           exception_code_t::server_device_failure));
 }
 
 awaitable<void> run_invalid_coil_tests(tcp_client& client) {
@@ -443,13 +495,13 @@ awaitable<void> run_invalid_coil_tests(tcp_client& client) {
     uint16_t start_address = 16;
     uint16_t num_read_coils = 5;
 
-    auto [response, error] = co_await client.send_request(
-        read_coils_request{unit_id, start_address, num_read_coils});
+    auto [response, error] = co_await client.send_request(client.create_request(
+        read_coils_request{unit_id, start_address, num_read_coils}));
 
     EXPECT_FALSE(error);
-    EXPECT_TRUE(response->is_exception());
+    EXPECT_TRUE(response.is_exception());
 
-    auto optionalResponse = response->pdu<exception_response>();
+    auto optionalResponse = response.pdu<exception_response>();
     EXPECT_TRUE(optionalResponse);
 
     auto exceptionResponse = optionalResponse.value();
@@ -462,20 +514,21 @@ awaitable<void> run_coil_tests(tcp_client& client) {
     uint8_t unit_id = 1;
     uint16_t start_address = 8;
     uint16_t num_read_coils = 11;
-    auto [response, error] = co_await client.send_request(
-        write_single_coil_request{unit_id, start_address, coil_status_t::on});
+    auto [response, error] = co_await client.send_request(client.create_request(
+        write_single_coil_request{unit_id, start_address, coil_status_t::on}));
 
     EXPECT_FALSE(error);
-    EXPECT_FALSE(response->is_exception());
+    EXPECT_FALSE(response.is_exception());
 
     // read coils
-    std::tie(response, error) = co_await client.send_request(
-        read_coils_request{unit_id, start_address, num_read_coils});
+    std::tie(response, error) =
+        co_await client.send_request(client.create_request(
+            read_coils_request{unit_id, start_address, num_read_coils}));
 
     EXPECT_FALSE(error);
-    EXPECT_FALSE(response->is_exception());
+    EXPECT_FALSE(response.is_exception());
 
-    auto optionalResponse = response->pdu<read_coils_response>();
+    auto optionalResponse = response.pdu<read_coils_response>();
     EXPECT_TRUE(optionalResponse);
 
     modbus_response_t data{
@@ -503,13 +556,13 @@ awaitable<void> run_invalid_inputs_tests(tcp_client& client) {
     uint8_t unit_id = 1;
     uint16_t start_address = 16;
     uint16_t num_read_inputs = 5;
-    auto [response, error] = co_await client.send_request(
-        read_discrete_inputs_request{unit_id, start_address, num_read_inputs});
+    auto [response, error] = co_await client.send_request(client.create_request(
+        read_discrete_inputs_request{unit_id, start_address, num_read_inputs}));
 
     EXPECT_FALSE(error);
-    EXPECT_TRUE(response->is_exception());
+    EXPECT_TRUE(response.is_exception());
 
-    auto optionalResponse = response->pdu<exception_response>();
+    auto optionalResponse = response.pdu<exception_response>();
     EXPECT_TRUE(optionalResponse);
 
     auto exceptionResponse = optionalResponse.value();
@@ -524,13 +577,13 @@ awaitable<void> run_inputs_tests(tcp_client& client) {
     uint16_t num_read_inputs = 11;
 
     // read coils
-    auto [response, error] = co_await client.send_request(
-        read_discrete_inputs_request{unit_id, start_address, num_read_inputs});
+    auto [response, error] = co_await client.send_request(client.create_request(
+        read_discrete_inputs_request{unit_id, start_address, num_read_inputs}));
 
     EXPECT_FALSE(error);
-    EXPECT_FALSE(response->is_exception());
+    EXPECT_FALSE(response.is_exception());
 
-    auto optionalResponse = response->pdu<read_discrete_inputs_response>();
+    auto optionalResponse = response.pdu<read_discrete_inputs_response>();
     EXPECT_TRUE(optionalResponse);
 
     modbus_response_t data{
@@ -558,13 +611,13 @@ awaitable<void> run_invalid_holding_reg_tests(tcp_client& client) {
     uint8_t unit_id = 1;
     uint16_t start_address = 0;
     uint16_t num_read_reg = 4;
-    auto [response, error] = co_await client.send_request(
-        read_holding_registers_request{unit_id, start_address, num_read_reg});
+    auto [response, error] = co_await client.send_request(client.create_request(
+        read_holding_registers_request{unit_id, start_address, num_read_reg}));
 
     EXPECT_FALSE(error);
-    EXPECT_TRUE(response->is_exception());
+    EXPECT_TRUE(response.is_exception());
 
-    auto optionalResponse = response->pdu<exception_response>();
+    auto optionalResponse = response.pdu<exception_response>();
     EXPECT_TRUE(optionalResponse);
 
     auto exceptionResponse = optionalResponse.value();
@@ -579,13 +632,13 @@ awaitable<void> run_holding_reg_tests(tcp_client& client) {
     uint16_t num_read_reg = 2;
 
     // read coils
-    auto [response, error] = co_await client.send_request(
-        read_holding_registers_request{unit_id, start_address, num_read_reg});
+    auto [response, error] = co_await client.send_request(client.create_request(
+        read_holding_registers_request{unit_id, start_address, num_read_reg}));
 
     EXPECT_FALSE(error);
-    EXPECT_FALSE(response->is_exception());
+    EXPECT_FALSE(response.is_exception());
 
-    auto optionalResponse = response->pdu<read_holding_registers_response>();
+    auto optionalResponse = response.pdu<read_holding_registers_response>();
     EXPECT_TRUE(optionalResponse);
 
     modbus_response_t data{
@@ -602,13 +655,13 @@ awaitable<void> run_invalid_input_reg_tests(tcp_client& client) {
     uint8_t unit_id = 1;
     uint16_t start_address = 0;
     uint16_t num_read_reg = 4;
-    auto [response, error] = co_await client.send_request(
-        read_input_registers_request{unit_id, start_address, num_read_reg});
+    auto [response, error] = co_await client.send_request(client.create_request(
+        read_input_registers_request{unit_id, start_address, num_read_reg}));
 
     EXPECT_FALSE(error);
-    EXPECT_TRUE(response->is_exception());
+    EXPECT_TRUE(response.is_exception());
 
-    auto optionalResponse = response->pdu<exception_response>();
+    auto optionalResponse = response.pdu<exception_response>();
     EXPECT_TRUE(optionalResponse);
 
     auto exceptionResponse = optionalResponse.value();
@@ -623,13 +676,13 @@ awaitable<void> run_input_reg_tests(tcp_client& client) {
     uint16_t num_read_reg = 2;
 
     // read coils
-    auto [response, error] = co_await client.send_request(
-        read_input_registers_request{unit_id, start_address, num_read_reg});
+    auto [response, error] = co_await client.send_request(client.create_request(
+        read_input_registers_request{unit_id, start_address, num_read_reg}));
 
     EXPECT_FALSE(error);
-    EXPECT_FALSE(response->is_exception());
+    EXPECT_FALSE(response.is_exception());
 
-    auto optionalResponse = response->pdu<read_input_registers_response>();
+    auto optionalResponse = response.pdu<read_input_registers_response>();
     EXPECT_TRUE(optionalResponse);
 
     modbus_response_t data{
@@ -640,16 +693,6 @@ awaitable<void> run_input_reg_tests(tcp_client& client) {
     EXPECT_EQ(data.buffer_length(), num_read_reg * 2);
     EXPECT_EQ(data.getUINT16(0), 0xF00FU);
     EXPECT_EQ(data.getUINT16(1), 0xF00FU);
-}
-
-awaitable<void> wait_for(std::chrono::milliseconds timeout) {
-    // wait for the server to start
-    auto exec = co_await asio::this_coro::executor;
-    cpool::timer timer(exec);
-    print_logging_handler(
-        log_level::debug,
-        fmt::format("waiting {}ms for the server to start", timeout.count()));
-    co_await timer.async_wait(timeout);
 }
 
 awaitable<void> run_server_test(asio::io_context& ctx, tcp_server& server,
@@ -678,36 +721,49 @@ awaitable<void> run_slow_server_test(asio::io_context& ctx, tcp_server& server,
                                      tcp_client& client,
                                      bool stop_context = true) {
     // wait for server
-    co_await wait_for(50ms);
+    auto server_start_timeout = 50ms;
+    print_logging_handler(log_level::debug,
+                          fmt::format("waiting {}ms for the server to start",
+                                      server_start_timeout.count()));
+    co_await wait_for(server_start_timeout);
 
     // write reg
     uint8_t unit_id = 1;
     uint16_t start_address = 0;
     uint16_t num_read_reg = 2;
 
-    // read coils
+    // read input registers
     auto [response, error] = co_await client.send_request(
-        read_input_registers_request{unit_id, start_address, num_read_reg},
+        client.create_request(
+            read_input_registers_request{unit_id, start_address, num_read_reg}),
         SERVER_WAIT - 100ms);
 
     EXPECT_TRUE(error);
     EXPECT_EQ(error.error_code(), (int)boost::asio::error::timed_out);
-    EXPECT_FALSE(response->is_exception());
+    EXPECT_EQ(response.type(), message_type::invalid_pdu_type);
 
-    // auto optionalResponse = response->pdu<read_input_registers_response>();
-    // EXPECT_TRUE(optionalResponse);
+    auto request = client.create_request(
+        read_holding_registers_request{unit_id, start_address, num_read_reg});
+    std::tie(response, error) = co_await client.send_request(request);
+    EXPECT_FALSE(error);
+    if (error) {
+        print_logging_handler(log_level::error, error.message()),
+            SERVER_WAIT + 300ms;
+    }
+    EXPECT_EQ(request.transaction_id(), response.transaction_id());
+    auto optionalResponse = response.pdu<read_holding_registers_response>();
+    EXPECT_TRUE(optionalResponse);
 
-    // modbus_response_t data{
-    //     modbus_response_t::data_type(optionalResponse.value().function_code()),
-    //     std::make_shared<buffer_t>(optionalResponse.value().values),
-    //     start_address, (uint16_t)optionalResponse.value().values.size()};
+    modbus_response_t data{
+        modbus_response_t::data_type(optionalResponse.value().function_code()),
+        std::make_shared<buffer_t>(optionalResponse.value().values),
+        start_address, (uint16_t)optionalResponse.value().values.size()};
 
-    // EXPECT_EQ(data.buffer_length(), num_read_reg * 2);
-    // EXPECT_EQ(data.getUINT16(0), 0xF00FU);
-    // EXPECT_EQ(data.getUINT16(1), 0xF00FU);
+    EXPECT_EQ(data.buffer_length(), num_read_reg * 2);
+    EXPECT_EQ(data.getUINT16(0), 0x0FF0U);
+    EXPECT_EQ(data.getUINT16(1), 0x0FF0U);
 
     if (stop_context) {
-        server.stop();
         ctx.stop();
     }
     co_return;
@@ -741,8 +797,8 @@ TEST(tcp_server_test, server_test) {
 TEST(tcp_server_test, slow_server_test) {
     asio::io_context server_ctx(1);
 
-    auto host = get_env_var(ENV_PORT).value_or(DEFAULT_HOST);
-    auto portString = get_env_var(ENV_PORT).value_or(DEFAULT_PORT);
+    auto host = get_env_var(ENV_SLOW_HOST).value_or(DEFAULT_HOST);
+    auto portString = get_env_var(ENV_SLOW_PORT).value_or(DEFAULT_SLOW_PORT);
     uint16_t port = std::stoi(portString);
 
     // start the server
@@ -751,7 +807,7 @@ TEST(tcp_server_test, slow_server_test) {
     request_handler handler;
     tcp_server server(server_ctx.get_executor(), slow_handler, sconfig);
     co_spawn(server_ctx, server.start(), detached);
-    std::jthread server_thread = jthread([&]() { server_ctx.run(); });
+    std::jthread server_thread([&]() { server_ctx.run(); });
 
     // start the client
     asio::io_context client_ctx(1);
@@ -767,6 +823,7 @@ TEST(tcp_server_test, slow_server_test) {
     client_ctx.run();
 
     // cleanup the server
+    server.stop();
     server_ctx.stop();
     server_thread.join();
 }

@@ -44,73 +44,54 @@ class tcp_client {
     client_config config() const;
 
     /**
+     * @brief Reserves a transaction ID and creates a tcp_data_unit that can be
+     * sent using send_request.
+     * @param request An object that meets the requirements of is_message and
+     * describes a MODBUS request.
+     * @returns tcp_data_unit The MODBUS request as a TCP Data Unit
+     *
+     */
+    template <typename M> tcp_data_unit create_request(const M& request) {
+        return tcp_data_unit(reserve_transaction_id(), request);
+    }
+
+    /**
+     * @brief Reserves a transaction ID for creation of a tcp_data_unit
+     * @return uint16_t The transaction ID to use in the request.
+     */
+    uint16_t reserve_transaction_id();
+
+    /**
      * @brief Instructs the interface to send a request.
      * @param request The request to send to the remote endpoint.
      * @param timeout The time to wait for a response before declaring a request
      * a failure.
-     * @return awaitable<send_response_t> An awaitable tuple
+     * @return awaitable<read_response_t> An awaitable tuple
      * with the response and an error if any
      */
-    template <typename M>
-    [[nodiscard]] awaitable<send_response_t>
-    send_request(const M& request, std::chrono::milliseconds timeout = 5s) {
-        on_log_(log_level::debug,
-                fmt::format("connecting to {}:{}", config_.host, config_.port));
-        auto connection = co_await con_pool_->get_connection();
-
-        // setup timeout
-        on_log_(log_level::debug,
-                fmt::format("setting timeout of {}ms", timeout.count()));
-        connection->expires_after(timeout);
-
-        int transaction_id = transaction_id_++;
-        tcp_data_unit request_data_unit(transaction_id, request);
-        auto buf = request_data_unit.buffer();
-
-        on_log_(log_level::debug,
-                fmt::format("sending request with ID {}", transaction_id));
-        auto reply = co_await send_request(connection, *buf);
-
-        // reset timeout
-        connection->expires_never();
-
-        con_pool_->release_connection(connection);
-
-        auto response_data_unit = std::get<0>(reply);
-        auto error = std::get<1>(reply);
-        // return if error before validation
-        if (error) {
-            co_return reply;
-        }
-
-        // validate response
-        if (request_data_unit.transaction_id() !=
-            response_data_unit->transaction_id()) {
-            co_return std::make_tuple(
-                response_data_unit, modbus_client_error_code::invalid_response);
-        }
-
-        if (request_data_unit.function_code() !=
-            response_data_unit->function_code()) {
-            co_return std::make_tuple(
-                response_data_unit, modbus_client_error_code::invalid_response);
-        }
-
-        co_return reply;
-    }
+    [[nodiscard]] awaitable<read_response_t>
+    send_request(const tcp_data_unit& request,
+                 std::chrono::milliseconds timeout = 5s);
 
     /**
-     * @brief Sends a request.
+     * @brief Sends the request.
      *
      * @param connection The connection to use to make the request.
-     * @param buf The buffer that contains the request.
-     * @param timeout The time after which the request is considered to expire.
-     * Note that this does not expire while waiting for a connection.
-     * @return awaitable<send_response_t> An awaitable tuple
+     * @return awaitable<cpool::error> An awaitable tuple
      * with the response and an error if any
      */
-    [[nodiscard]] awaitable<send_response_t>
+    [[nodiscard]] awaitable<cpool::error>
     send_request(cpool::tcp_connection* connection, const buffer_t& buf);
+
+    /**
+     * @brief Reads the response.
+     *
+     * @param connection The connection to use to make the request.
+     * @return awaitable<read_response_t> An awaitable tuple
+     * with the response and an error if any
+     */
+    [[nodiscard]] awaitable<read_response_t>
+    read_response(cpool::tcp_connection* connection);
 
     /**
      * @brief Compares a request to the response and determines if any illegal
@@ -119,6 +100,9 @@ class tcp_client {
     static std::error_code
     validate_response(const tcp_data_unit& requestDataUnit,
                       const tcp_data_unit& responseDataUnit);
+
+    [[nodiscard]] awaitable<cpool::error>
+    clear_buffer(cpool::tcp_connection* connection);
 
   private:
     /// The io_service that is used to schedule asynchronous events.

@@ -34,6 +34,10 @@ awaitable<void> tcp_server::start() {
         auto [err, socket] =
             co_await acceptor_.async_accept(as_tuple(use_awaitable));
         if (err) {
+            if (err == asio::error::operation_aborted) {
+                break;
+            }
+
             on_log_(log_level::error,
                     fmt::format("error listening on interface {0}:{1} {2}",
                                 config_.endpoint, config_.port, err.message()));

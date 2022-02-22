@@ -41,20 +41,21 @@ awaitable<void> run_coil_tests(asio::io_context& ctx, tcp_client& client,
     uint8_t unit_id = 1;
     uint16_t start_address = 256;
     uint16_t num_read_coils = 8;
-    auto [response, error] = co_await client.send_request(
-        write_single_coil_request{unit_id, start_address, coil_status_t::on});
+    auto [response, error] = co_await client.send_request(client.create_request(
+        write_single_coil_request{unit_id, start_address, coil_status_t::on}));
 
     EXPECT_FALSE(error);
-    EXPECT_FALSE(response->is_exception());
+    EXPECT_FALSE(response.is_exception());
 
     // read coils
-    std::tie(response, error) = co_await client.send_request(
-        read_coils_request{unit_id, start_address, num_read_coils});
+    std::tie(response, error) =
+        co_await client.send_request(client.create_request(
+            read_coils_request{unit_id, start_address, num_read_coils}));
 
     EXPECT_FALSE(error);
-    EXPECT_FALSE(response->is_exception());
+    EXPECT_FALSE(response.is_exception());
 
-    auto optionalResponse = response->pdu<read_coils_response>();
+    auto optionalResponse = response.pdu<read_coils_response>();
     EXPECT_TRUE(optionalResponse);
 
     modbus_response_t data{
@@ -66,21 +67,23 @@ awaitable<void> run_coil_tests(asio::io_context& ctx, tcp_client& client,
     EXPECT_TRUE(data.getBool(0));
 
     // write multiple coils
-    std::tie(response,
-             error) = co_await client.send_request(write_multiple_coils_request{
-        unit_id, start_address, std::vector<bool>{false, true, false, true}});
+    std::tie(response, error) = co_await client.send_request(
+        client.create_request(write_multiple_coils_request{
+            unit_id, start_address,
+            std::vector<bool>{false, true, false, true}}));
 
     EXPECT_FALSE(error);
-    EXPECT_FALSE(response->is_exception());
+    EXPECT_FALSE(response.is_exception());
 
     // read coils
-    std::tie(response, error) = co_await client.send_request(
-        read_coils_request{unit_id, start_address, num_read_coils});
+    std::tie(response, error) =
+        co_await client.send_request(client.create_request(
+            read_coils_request{unit_id, start_address, num_read_coils}));
 
     EXPECT_FALSE(error);
-    EXPECT_FALSE(response->is_exception());
+    EXPECT_FALSE(response.is_exception());
 
-    optionalResponse = response->pdu<read_coils_response>();
+    optionalResponse = response.pdu<read_coils_response>();
     EXPECT_TRUE(optionalResponse);
 
     data = modbus_response_t{
@@ -106,13 +109,13 @@ awaitable<void> run_inputs_tests(asio::io_context& ctx, tcp_client& client,
     uint8_t unit_id = 1;
     uint16_t start_address = 256;
     uint16_t num_read_coils = 8;
-    auto [response, error] = co_await client.send_request(
-        read_discrete_inputs_request{unit_id, start_address, num_read_coils});
+    auto [response, error] = co_await client.send_request(client.create_request(
+        read_discrete_inputs_request{unit_id, start_address, num_read_coils}));
 
     EXPECT_FALSE(error);
-    EXPECT_FALSE(response->is_exception());
+    EXPECT_FALSE(response.is_exception());
 
-    auto optionalResponse = response->pdu<read_discrete_inputs_response>();
+    auto optionalResponse = response.pdu<read_discrete_inputs_response>();
     EXPECT_TRUE(optionalResponse);
 
     modbus_response_t data{
@@ -125,12 +128,13 @@ awaitable<void> run_inputs_tests(asio::io_context& ctx, tcp_client& client,
 
     // read coils
     std::tie(response, error) = co_await client.send_request(
-        read_discrete_inputs_request{unit_id, start_address, num_read_coils});
+        client.create_request(read_discrete_inputs_request{
+            unit_id, start_address, num_read_coils}));
 
     EXPECT_FALSE(error);
-    EXPECT_FALSE(response->is_exception());
+    EXPECT_FALSE(response.is_exception());
 
-    optionalResponse = response->pdu<read_discrete_inputs_response>();
+    optionalResponse = response.pdu<read_discrete_inputs_response>();
     EXPECT_TRUE(optionalResponse);
 
     data = modbus_response_t{
@@ -161,20 +165,21 @@ awaitable<void> run_holding_reg_tests(asio::io_context& ctx, tcp_client& client,
     uint16_t write_val = 255;
     std::vector<uint16_t> write_vals{0x00, 0x01, 0x02, 0x03, 0x04};
 
-    auto [response, error] = co_await client.send_request(
-        write_single_register_request{unit_id, offset_address, write_val});
+    auto [response, error] = co_await client.send_request(client.create_request(
+        write_single_register_request{unit_id, offset_address, write_val}));
 
     EXPECT_FALSE(error);
-    EXPECT_FALSE(response->is_exception());
+    EXPECT_FALSE(response.is_exception());
 
     // read registers
     std::tie(response, error) = co_await client.send_request(
-        read_holding_registers_request{unit_id, start_address, num_read_reg});
+        client.create_request(read_holding_registers_request{
+            unit_id, start_address, num_read_reg}));
 
     EXPECT_FALSE(error);
-    EXPECT_FALSE(response->is_exception());
+    EXPECT_FALSE(response.is_exception());
 
-    auto optionalResponse = response->pdu<read_holding_registers_response>();
+    auto optionalResponse = response.pdu<read_holding_registers_response>();
     EXPECT_TRUE(optionalResponse);
 
     modbus_response_t data{
@@ -188,21 +193,22 @@ awaitable<void> run_holding_reg_tests(asio::io_context& ctx, tcp_client& client,
     // write multiple registers
     start_address = 20;
     num_read_reg = (uint16_t)write_vals.size();
-    std::tie(response, error) =
-        co_await client.send_request(write_multiple_registers_request{
-            unit_id, start_address, (uint16_t)write_vals.size(), write_vals});
+    std::tie(response, error) = co_await client.send_request(
+        client.create_request(write_multiple_registers_request{
+            unit_id, start_address, (uint16_t)write_vals.size(), write_vals}));
 
     EXPECT_FALSE(error);
-    EXPECT_FALSE(response->is_exception());
+    EXPECT_FALSE(response.is_exception());
 
     // read registers
     std::tie(response, error) = co_await client.send_request(
-        read_holding_registers_request{unit_id, start_address, num_read_reg});
+        client.create_request(read_holding_registers_request{
+            unit_id, start_address, num_read_reg}));
 
     EXPECT_FALSE(error);
-    EXPECT_FALSE(response->is_exception());
+    EXPECT_FALSE(response.is_exception());
 
-    optionalResponse = response->pdu<read_holding_registers_response>();
+    optionalResponse = response.pdu<read_holding_registers_response>();
     EXPECT_TRUE(optionalResponse);
 
     data = modbus_response_t{
@@ -229,13 +235,13 @@ awaitable<void> run_input_reg_tests(asio::io_context& ctx, tcp_client& client,
     uint16_t num_read_reg = 10;
 
     // read registers
-    auto [response, error] = co_await client.send_request(
-        read_input_registers_request{unit_id, start_address, num_read_reg});
+    auto [response, error] = co_await client.send_request(client.create_request(
+        read_input_registers_request{unit_id, start_address, num_read_reg}));
 
     EXPECT_FALSE(error);
-    EXPECT_FALSE(response->is_exception());
+    EXPECT_FALSE(response.is_exception());
 
-    auto optionalResponse = response->pdu<read_input_registers_response>();
+    auto optionalResponse = response.pdu<read_input_registers_response>();
     EXPECT_TRUE(optionalResponse);
     auto data = modbus_response_t{
         modbus_response_t::data_type(optionalResponse.value().function_code()),
@@ -253,12 +259,13 @@ awaitable<void> run_input_reg_tests(asio::io_context& ctx, tcp_client& client,
     start_address = 426;
     num_read_reg = 6;
     std::tie(response, error) = co_await client.send_request(
-        read_input_registers_request{unit_id, start_address, num_read_reg});
+        client.create_request(read_input_registers_request{
+            unit_id, start_address, num_read_reg}));
 
     EXPECT_FALSE(error);
-    EXPECT_FALSE(response->is_exception());
+    EXPECT_FALSE(response.is_exception());
 
-    optionalResponse = response->pdu<read_input_registers_response>();
+    optionalResponse = response.pdu<read_input_registers_response>();
     EXPECT_TRUE(optionalResponse);
     data = modbus_response_t{
         modbus_response_t::data_type(optionalResponse.value().function_code()),

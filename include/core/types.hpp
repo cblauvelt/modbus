@@ -41,9 +41,8 @@ using const_buffer_iterator = buffer_t::const_iterator;
 using logging_handler_t =
     std::function<void(log_level level, std::string_view message)>;
 
-/// Defines the response type from send
-using send_response_t =
-    std::tuple<std::shared_ptr<tcp_data_unit>, cpool::error>;
+/// Defines the response type from read_response
+using read_response_t = std::tuple<tcp_data_unit, cpool::error>;
 
 /// Defines the maximum size of an Application Data Unit (APU)
 constexpr int MAX_APU_SIZE = 256;

@@ -41,6 +41,12 @@ tcp_client::send_request(const tcp_data_unit& request,
                          std::chrono::milliseconds timeout) {
     auto connection = co_await con_pool_->get_connection();
 
+    // clear buffer to remove responses that may have appeared after a timeout
+    auto error = co_await clear_buffer(connection);
+    if (error) {
+        co_return read_response_t(tcp_data_unit(), error);
+    }
+
     // setup timeout
     on_log_(log_level::trace,
             fmt::format("setting timeout of {}ms", timeout.count()));
@@ -50,7 +56,7 @@ tcp_client::send_request(const tcp_data_unit& request,
 
     on_log_(log_level::debug, fmt::format("sending request with ID {}",
                                           request.transaction_id()));
-    auto error = co_await send_request(connection, *buf);
+    error = co_await send_request(connection, *buf);
     if (error) {
         co_return read_response_t(tcp_data_unit(), error);
     }
@@ -61,7 +67,7 @@ tcp_client::send_request(const tcp_data_unit& request,
     tcp_data_unit response;
     do {
         std::tie(response, error) = co_await read_response(connection);
-    } while (!error && request.transaction_id() != response.transaction_id());
+    } while (!error && response.transaction_id() < request.transaction_id());
 
     connection->expires_never();
 
@@ -157,11 +163,16 @@ tcp_client::validate_response(const tcp_data_unit& requestDataUnit,
     return modbus_client_error_code::no_error;
 }
 
-awaitable<cpool::error> clear_buffer(cpool::tcp_connection* connection) {
+awaitable<cpool::error>
+tcp_client::clear_buffer(cpool::tcp_connection* connection) {
     // clear out buffer
     // sometimes the client times out but the server eventually responds
     // this will have an old transaction id and response type
-    auto [bytes_available, ignored_err] = connection->bytes_available();
+    auto [bytes_available, err] = connection->bytes_available();
+    if (err) {
+        co_return modbus_client_error_code::disconnected;
+    }
+
     if (bytes_available > 0) {
         buffer_t ignore_buf(bytes_available);
         auto [error, bytes_read] =
@@ -173,6 +184,8 @@ awaitable<cpool::error> clear_buffer(cpool::tcp_connection* connection) {
             co_return modbus_client_error_code::disconnected;
         }
     }
+
+    co_return modbus_client_error_code::no_error;
 }
 
 } // namespace modbus

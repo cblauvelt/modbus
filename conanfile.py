@@ -41,7 +41,8 @@ class ModbusClientConan(ConanFile):
 
     def set_version(self):
         git = tools.Git(folder=self.recipe_folder)
-        self.version = self.sanitize_version(git.get_tag()) if git.get_tag() else "%s_%s" % (git.get_branch(), git.get_revision())
+        self.version = self.sanitize_version(git.get_tag()) if git.get_tag(
+        ) else "%s_%s" % (git.get_branch(), git.get_revision()[:12])
 
     def build(self):
         cmake = CMake(self)

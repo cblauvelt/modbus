@@ -413,7 +413,6 @@ awaitable<tcp_data_unit> slow_handler(const tcp_data_unit& requestDataUnit) {
 
     print_logging_handler(log_level::trace,
                           fmt::format("Waiting {}ms", SERVER_WAIT.count()));
-    // co_await timer.async_wait(SERVER_WAIT);
     co_await wait_for(SERVER_WAIT);
 
     if (function_code == function_code_t::read_holding_registers) {
@@ -794,40 +793,6 @@ TEST(tcp_server_test, server_test) {
     ctx.run();
 }
 
-TEST(tcp_server_test, slow_server_test) {
-    asio::io_context server_ctx(1);
-
-    auto host = get_env_var(ENV_SLOW_HOST).value_or(DEFAULT_HOST);
-    auto portString = get_env_var(ENV_SLOW_PORT).value_or(DEFAULT_SLOW_PORT);
-    uint16_t port = std::stoi(portString);
-
-    // start the server
-    server_config sconfig =
-        server_config{host, port}.set_logging_handler(print_logging_handler);
-    request_handler handler;
-    tcp_server server(server_ctx.get_executor(), slow_handler, sconfig);
-    co_spawn(server_ctx, server.start(), detached);
-    std::jthread server_thread([&]() { server_ctx.run(); });
-
-    // start the client
-    asio::io_context client_ctx(1);
-    client_config cconfig =
-        client_config(host, port).set_logging_handler(print_logging_handler);
-    tcp_client client(client_ctx.get_executor(), cconfig);
-
-    // run the test
-    co_spawn(client_ctx,
-             run_slow_server_test(std::ref(client_ctx), server, client),
-             detached);
-
-    client_ctx.run();
-
-    // cleanup the server
-    server.stop();
-    server_ctx.stop();
-    server_thread.join();
-}
-
 TEST(tcp_server_test, server_test_multi_thread) {
     int num_threads = 8;
     asio::io_context ctx(num_threads);
@@ -862,6 +827,31 @@ TEST(tcp_server_test, server_test_multi_thread) {
     for (auto& thread : threads) {
         thread.join();
     }
+}
+
+TEST(tcp_server_test, slow_server_test) {
+    asio::io_context ctx(1);
+
+    auto host = get_env_var(ENV_SLOW_HOST).value_or(DEFAULT_HOST);
+    auto portString = get_env_var(ENV_SLOW_PORT).value_or(DEFAULT_SLOW_PORT);
+    uint16_t port = std::stoi(portString);
+
+    // start the server
+    server_config sconfig =
+        server_config{host, port}.set_logging_handler(print_logging_handler);
+    tcp_server server(ctx.get_executor(), slow_handler, sconfig);
+    co_spawn(ctx, server.start(), detached);
+
+    // start the client
+    client_config cconfig =
+        client_config(host, port).set_logging_handler(print_logging_handler);
+    tcp_client client(ctx.get_executor(), cconfig);
+
+    // run the test
+    co_spawn(ctx, run_slow_server_test(std::ref(ctx), server, client),
+             detached);
+
+    ctx.run();
 }
 
 } // namespace

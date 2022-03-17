@@ -16,11 +16,7 @@ set(TARGET_NAME ${PROJECT_NAME})
 
 # include source directories
 include_directories(
-    "${CMAKE_SOURCE_DIR}/include"
-    "${CMAKE_SOURCE_DIR}/include/core"
-    "${CMAKE_SOURCE_DIR}/include/core/messages"
-    "${CMAKE_SOURCE_DIR}/include/client"
-    "${CMAKE_SOURCE_DIR}/include/server"
+    "${CMAKE_SOURCE_DIR}/"
 )
 
 if(${UNIX})
@@ -76,85 +72,80 @@ else()
 endif()
 
 set(INCLUDE_FILES
-    "include/core/types.hpp"
-    "include/core/is_message.hpp"
-    "include/core/tcp_data_unit.hpp"
-    "include/core/requests.hpp"
-    "include/core/read_coils_request.hpp"
-    "include/core/read_discrete_inputs_request.hpp"
-    "include/core/read_holding_registers_request.hpp"
-    "include/core/read_input_registers_request.hpp"
-    "include/core/write_single_coil_request.hpp"
-    "include/core/write_single_register_request.hpp"
-    "include/core/write_multiple_coils_request.hpp"
-    "include/core/write_multiple_registers_request.hpp"
-    "include/core/mask_write_register_request.hpp"
-    "include/core/read_write_registers_request.hpp"
-    "include/core/responses.hpp"
-    "include/core/read_coils_response.hpp"
-    "include/core/read_discrete_inputs_response.hpp"
-    "include/core/read_holding_registers_response.hpp"
-    "include/core/read_input_registers_response.hpp"
-    "include/core/write_single_coil_response.hpp"
-    "include/core/write_single_register_response.hpp"
-    "include/core/write_multiple_registers_response.hpp"
-    "include/core/write_single_coil_request.hpp"
-    "include/core/mask_write_register_response.hpp"
-    "include/core/read_write_registers_response.hpp"
-    "include/core/exception_response.hpp"
-    "include/core/error.hpp"
-    "include/core/modbus_response.hpp"
-    "include/client/tcp_client.hpp"
-    "include/client/client_config.hpp"
-    "include/server/tcp_server.hpp"
-    "include/server/tcp_session_manager.hpp"
-    "include/server/tcp_session.hpp"
-    "include/server/server_helper.hpp"
+    "modbus/core/types.hpp"
+    "modbus/core/is_message.hpp"
+    "modbus/core/tcp_data_unit.hpp"
+    "modbus/core/requests.hpp"
+    "modbus/core/read_coils_request.hpp"
+    "modbus/core/read_discrete_inputs_request.hpp"
+    "modbus/core/read_holding_registers_request.hpp"
+    "modbus/core/read_input_registers_request.hpp"
+    "modbus/core/write_single_coil_request.hpp"
+    "modbus/core/write_single_register_request.hpp"
+    "modbus/core/write_multiple_coils_request.hpp"
+    "modbus/core/write_multiple_registers_request.hpp"
+    "modbus/core/mask_write_register_request.hpp"
+    "modbus/core/read_write_registers_request.hpp"
+    "modbus/core/responses.hpp"
+    "modbus/core/read_coils_response.hpp"
+    "modbus/core/read_discrete_inputs_response.hpp"
+    "modbus/core/read_holding_registers_response.hpp"
+    "modbus/core/read_input_registers_response.hpp"
+    "modbus/core/write_single_coil_response.hpp"
+    "modbus/core/write_single_register_response.hpp"
+    "modbus/core/write_multiple_registers_response.hpp"
+    "modbus/core/write_single_coil_request.hpp"
+    "modbus/core/mask_write_register_response.hpp"
+    "modbus/core/read_write_registers_response.hpp"
+    "modbus/core/exception_response.hpp"
+    "modbus/core/error.hpp"
+    "modbus/core/modbus_response.hpp"
+    "modbus/client/tcp_client.hpp"
+    "modbus/client/client_config.hpp"
+    "modbus/server/tcp_server.hpp"
+    "modbus/server/tcp_session_manager.hpp"
+    "modbus/server/tcp_session.hpp"
+    "modbus/server/server_helper.hpp"
 )
 
 set(SOURCE_FILES
-    "src/core/tcp_data_unit.cpp"
-    "src/core/messages/read_coils_request.cpp"
-    "src/core/messages/read_discrete_inputs_request.cpp"
-    "src/core/messages/read_holding_registers_request.cpp"
-    "src/core/messages/read_input_registers_request.cpp"
-    "src/core/messages/write_single_coil_request.cpp"
-    "src/core/messages/write_single_register_request.cpp"
-    "src/core/messages/write_multiple_coils_request.cpp"
-    "src/core/messages/write_multiple_registers_request.cpp"
-    "src/core/messages/mask_write_register_request.cpp"
-    "src/core/messages/read_write_registers_request.cpp"
-    "src/core/messages/read_coils_response.cpp"
-    "src/core/messages/read_discrete_inputs_response.cpp"
-    "src/core/messages/read_holding_registers_response.cpp"
-    "src/core/messages/read_input_registers_response.cpp"
-    "src/core/messages/write_single_coil_response.cpp"
-    "src/core/messages/write_single_register_response.cpp"
-    "src/core/messages/write_multiple_coils_response.cpp"
-    "src/core/messages/write_multiple_registers_response.cpp"
-    "src/core/messages/mask_write_register_response.cpp"
-    "src/core/messages/read_write_registers_response.cpp"
-    "src/core/messages/exception_response.cpp"
-    "src/core/error.cpp"
-    "src/core/modbus_response.cpp"
-    "src/client/tcp_client.cpp"
-    "src/server/tcp_server.cpp"
-    "src/server/tcp_session_manager.cpp"
-    "src/server/tcp_session.cpp"
+    "modbus/core/tcp_data_unit.cpp"
+    "modbus/core/messages/read_coils_request.cpp"
+    "modbus/core/messages/read_discrete_inputs_request.cpp"
+    "modbus/core/messages/read_holding_registers_request.cpp"
+    "modbus/core/messages/read_input_registers_request.cpp"
+    "modbus/core/messages/write_single_coil_request.cpp"
+    "modbus/core/messages/write_single_register_request.cpp"
+    "modbus/core/messages/write_multiple_coils_request.cpp"
+    "modbus/core/messages/write_multiple_registers_request.cpp"
+    "modbus/core/messages/mask_write_register_request.cpp"
+    "modbus/core/messages/read_write_registers_request.cpp"
+    "modbus/core/messages/read_coils_response.cpp"
+    "modbus/core/messages/read_discrete_inputs_response.cpp"
+    "modbus/core/messages/read_holding_registers_response.cpp"
+    "modbus/core/messages/read_input_registers_response.cpp"
+    "modbus/core/messages/write_single_coil_response.cpp"
+    "modbus/core/messages/write_single_register_response.cpp"
+    "modbus/core/messages/write_multiple_coils_response.cpp"
+    "modbus/core/messages/write_multiple_registers_response.cpp"
+    "modbus/core/messages/mask_write_register_response.cpp"
+    "modbus/core/messages/read_write_registers_response.cpp"
+    "modbus/core/messages/exception_response.cpp"
+    "modbus/core/error.cpp"
+    "modbus/core/modbus_response.cpp"
+    "modbus/client/tcp_client.cpp"
+    "modbus/server/tcp_server.cpp"
+    "modbus/server/tcp_session_manager.cpp"
+    "modbus/server/tcp_session.cpp"
     )
 
 add_library(${TARGET_NAME} STATIC ${SOURCE_FILES})
 
 target_link_libraries(${TARGET_NAME} ${CONAN_LIBS})
 
-if(${STATEMACHINE_LOGGING})
-    message("-- Adding state machine logging")
-    target_compile_definitions(${TARGET_NAME} PRIVATE "STATEMACHINE_LOGGING=1")
-endif(${STATEMACHINE_LOGGING})
-
 # install headers
 set(include_install_dir "${CMAKE_INSTALL_INCLUDEDIR}/modbus")
-set(HEADER_BASE "${CMAKE_CURRENT_SOURCE_DIR}/include/")
+set(HEADER_BASE "${CMAKE_CURRENT_SOURCE_DIR}/modbus/")
 install(
     DIRECTORY "${HEADER_BASE}"
     DESTINATION "${include_install_dir}"
@@ -168,11 +159,11 @@ install(
 )
 
 # create and configure the unit test target
-option(BUILD_TESTS "Build the unit tests" ON)
+option(BUILD_TESTING "Build the unit tests" ON)
 option(RUN_E2E_TESTS "Run e2e tests" OFF)
-message("-- BUILD_TESTS is ${BUILD_TESTS}")
+message("-- BUILD_TESTING is ${BUILD_TESTING}")
 message("-- RUN_E2E_TESTS is ${RUN_E2E_TESTS}")
-if(BUILD_TESTS)
+if(BUILD_TESTING)
 	enable_testing()
     add_subdirectory(test)
-endif(BUILD_TESTS)
+endif(BUILD_TESTING)

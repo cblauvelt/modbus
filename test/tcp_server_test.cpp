@@ -1,10 +1,10 @@
-#include "client/tcp_client.hpp"
-#include "core/modbus_response.hpp"
-#include "core/requests.hpp"
-#include "core/responses.hpp"
-#include "core/types.hpp"
-#include "server/server_helper.hpp"
-#include "server/tcp_server.hpp"
+#include "modbus/client/tcp_client.hpp"
+#include "modbus/core/modbus_response.hpp"
+#include "modbus/core/requests.hpp"
+#include "modbus/core/responses.hpp"
+#include "modbus/core/types.hpp"
+#include "modbus/server/server_helper.hpp"
+#include "modbus/server/tcp_server.hpp"
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -738,7 +738,7 @@ awaitable<void> run_slow_server_test(asio::io_context& ctx, tcp_server& server,
         SERVER_WAIT - 100ms);
 
     EXPECT_TRUE(error);
-    EXPECT_EQ(error.error_code(), (int)boost::asio::error::timed_out);
+    EXPECT_EQ(error.value(), (int)boost::asio::error::timed_out);
     EXPECT_EQ(response.type(), message_type::invalid_pdu_type);
 
     auto request = client.create_request(

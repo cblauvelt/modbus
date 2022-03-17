@@ -20,7 +20,7 @@ class ModbusClientConan(ConanFile):
     exports_sources = ["CMakeLists.txt", "conan.cmake", "conanfile.py", "include/*", "src/*", "test/*"]
     generators = "cmake"
     settings = "os", "arch", "compiler", "build_type"
-    requires = "cpool/0.9.6", "boost/1.78.0", "fmt/8.1.1"
+    requires = "cpool/main_eee0134063f7", "boost/1.78.0", "fmt/8.1.1"
     build_requires = "gtest/cci.20210126"
     options = {"cxx_standard": [20], "build_testing": [True, False]}
     default_options = {"cxx_standard": 20, "build_testing": True}
@@ -35,14 +35,16 @@ class ModbusClientConan(ConanFile):
            Version(self.settings.compiler.version.value) < "16":
             raise ConanInvalidConfiguration("modbus does not support MSVC < 16")
 
-    def sanitize_version(self, version):
+    def sanitize_tag(self, version):
         return re.sub(r'^v', '', version)
 
+    def sanitize_branch(self, branch):
+        return re.sub(r'/', '_', branch)
 
     def set_version(self):
         git = tools.Git(folder=self.recipe_folder)
-        self.version = self.sanitize_version(git.get_tag()) if git.get_tag(
-        ) else "%s_%s" % (git.get_branch(), git.get_revision()[:12])
+        self.version = self.sanitize_tag(git.get_tag()) if git.get_tag(
+        ) else "%s_%s" % (self.sanitize_branch(git.get_branch()), git.get_revision()[:12])
 
     def build(self):
         cmake = CMake(self)
@@ -54,10 +56,7 @@ class ModbusClientConan(ConanFile):
 
     def package(self):
         self.copy("LICENSE", dst="licenses")
-        self.copy("*.hpp", dst="include/modbus", src="include")
-        self.copy("*.hpp", dst="include/modbus", src="include/client")
-        self.copy("*.hpp", dst="include/modbus", src="include/core")
-        self.copy("*.hpp", dst="include/modbus", src="include/server")
+        self.copy("*.hpp", dst="include/modbus", src="modbus")
         self.copy("*.a", dst="lib", keep_path=False)
         
     def package_info(self):

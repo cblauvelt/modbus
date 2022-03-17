@@ -1,0 +1,191 @@
+#include "modbus/client/tcp_client.hpp"
+
+namespace modbus {
+
+tcp_client::tcp_client(cpool::net::any_io_executor exec, client_config config)
+    : exec_(exec)
+    , config_(config)
+    , con_pool_(nullptr)
+    , transaction_id_(1)
+    , on_log_(config_.logging_handler) {
+    auto conn_creator = [&]() -> std::unique_ptr<cpool::tcp_connection> {
+        auto conn = std::make_unique<cpool::tcp_connection>(exec_, config_.host,
+                                                            config_.port);
+        return conn;
+    };
+
+    con_pool_ = std::make_unique<cpool::connection_pool<cpool::tcp_connection>>(
+        exec_, conn_creator, config_.max_connections);
+}
+
+void tcp_client::set_config(client_config config) {
+    config_ = config;
+    on_log_ = config.logging_handler;
+
+    auto conn_creator = [&]() -> std::unique_ptr<cpool::tcp_connection> {
+        auto conn = std::make_unique<cpool::tcp_connection>(exec_, config_.host,
+                                                            config_.port);
+        return conn;
+    };
+
+    con_pool_ = std::make_unique<cpool::connection_pool<cpool::tcp_connection>>(
+        exec_, conn_creator, config_.max_connections);
+}
+
+client_config tcp_client::config() const { return config_; }
+
+uint16_t tcp_client::reserve_transaction_id() { return transaction_id_++; }
+
+awaitable<read_response_t>
+tcp_client::send_request(const tcp_data_unit& request,
+                         std::chrono::milliseconds timeout) {
+    auto connection = co_await con_pool_->get_connection();
+
+    // clear buffer to remove responses that may have appeared after a timeout
+    auto error = co_await clear_buffer(connection);
+    if (error) {
+        co_return read_response_t(tcp_data_unit(), error);
+    }
+
+    // setup timeout
+    on_log_(log_level::trace,
+            fmt::format("setting timeout of {}ms", timeout.count()));
+    connection->expires_after(timeout);
+
+    auto buf = request.buffer();
+
+    on_log_(log_level::debug, fmt::format("sending request with ID {}",
+                                          request.transaction_id()));
+    error = co_await send_request(connection, *buf);
+    if (error) {
+        co_return read_response_t(tcp_data_unit(), error);
+    }
+
+    // we've cleared the buffer but a response could have come in between
+    // clearing the buffer and reading the response from our request iterate
+    // until we've received our response or timedout
+    tcp_data_unit response;
+    do {
+        std::tie(response, error) = co_await read_response(connection);
+    } while (!error && response.transaction_id() < request.transaction_id());
+
+    connection->expires_never();
+
+    con_pool_->release_connection(connection);
+
+    co_return read_response_t(response, error);
+}
+
+awaitable<cpool::error>
+tcp_client::send_request(cpool::tcp_connection* connection,
+                         const buffer_t& buf) {
+
+    // write request
+    auto [write_error, bytes_written] =
+        co_await connection->async_write(asio::buffer(buf));
+    if (write_error) {
+        co_return write_error;
+    }
+    if (bytes_written != buf.size()) {
+        co_return cpool::error(fmt::format(
+            "tried to write {0} bytes, wrote {1}", buf.size(), bytes_written));
+    }
+
+    co_return cpool::error();
+}
+
+awaitable<read_response_t>
+tcp_client::read_response(cpool::tcp_connection* connection) {
+    buffer_t readBuffer(MAX_APU_SIZE);
+    // read header of response
+    auto [read_error, bytes_read] = co_await connection->async_read(
+        asio::buffer(readBuffer, TCP_HEADER_SIZE));
+    if (read_error) {
+        co_return read_response_t(tcp_data_unit(), read_error);
+    }
+    if (bytes_read != TCP_HEADER_SIZE) {
+        co_return read_response_t(
+            tcp_data_unit(),
+            cpool::error(modbus_error_code::malformed_message));
+    }
+
+    // read the response
+    int message_length = readBuffer[4] << 8;
+    message_length += readBuffer[5];
+    if (message_length + TCP_HEADER_SIZE > MAX_APU_SIZE) {
+        co_return read_response_t(
+            tcp_data_unit(),
+            cpool::error(modbus_client_error_code::invalid_response));
+    }
+
+    std::tie(read_error, bytes_read) =
+        co_await connection->async_read(asio::buffer(
+            asio::buffer(readBuffer) + TCP_HEADER_SIZE, message_length));
+    if (read_error) {
+        co_return read_response_t(tcp_data_unit(), read_error);
+    }
+    if (bytes_read != message_length) {
+        co_return read_response_t(
+            tcp_data_unit(),
+            cpool::error(modbus_client_error_code::disconnected,
+                         "failed to read the response"));
+    }
+
+    auto response = tcp_data_unit(readBuffer, bytes_read + TCP_HEADER_SIZE,
+                                  message_type::response);
+
+    co_return read_response_t(response, cpool::error());
+}
+
+std::error_code
+tcp_client::validate_response(const tcp_data_unit& requestDataUnit,
+                              const tcp_data_unit& responseDataUnit) {
+    // Do some error checking
+    function_code_t functionCode = responseDataUnit.function_code();
+
+    if (requestDataUnit.transaction_id() != responseDataUnit.transaction_id()) {
+        return modbus_client_error_code::invalid_response;
+    }
+
+    if (requestDataUnit.function_code() != responseDataUnit.function_code()) {
+        return modbus_client_error_code::invalid_response;
+    }
+
+    if ((functionCode == function_code_t::write_single_coil ||
+         functionCode == function_code_t::write_single_register) &&
+        !responseDataUnit.is_exception()) {
+        // Data should equal the request
+        if (*(requestDataUnit.buffer()) != *(responseDataUnit.buffer())) {
+            return modbus_client_error_code::invalid_response;
+        }
+    }
+
+    return modbus_client_error_code::no_error;
+}
+
+awaitable<cpool::error>
+tcp_client::clear_buffer(cpool::tcp_connection* connection) {
+    // clear out buffer
+    // sometimes the client times out but the server eventually responds
+    // this will have an old transaction id and response type
+    auto [bytes_available, err] = connection->bytes_available();
+    if (err) {
+        co_return modbus_client_error_code::disconnected;
+    }
+
+    if (bytes_available > 0) {
+        buffer_t ignore_buf(bytes_available);
+        auto [error, bytes_read] =
+            co_await connection->async_read(asio::buffer(ignore_buf));
+        if (error) {
+            co_return error;
+        }
+        if (bytes_read != bytes_available) {
+            co_return modbus_client_error_code::disconnected;
+        }
+    }
+
+    co_return modbus_client_error_code::no_error;
+}
+
+} // namespace modbus

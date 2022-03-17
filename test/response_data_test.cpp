@@ -1,4 +1,4 @@
-#include "modbus_response.hpp"
+#include "modbus/core/modbus_response.hpp"
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"

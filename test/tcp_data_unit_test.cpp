@@ -1,5 +1,5 @@
-#include "requests.hpp"
-#include "tcp_data_unit.hpp"
+#include "modbus/core/requests.hpp"
+#include "modbus/core/tcp_data_unit.hpp"
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"

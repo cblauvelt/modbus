@@ -1,7 +1,4 @@
-#include "modbus/client/tcp_client.hpp"
-#include "modbus/core/modbus_response.hpp"
-#include "modbus/core/requests.hpp"
-#include "modbus/core/responses.hpp"
+#include "modbus/client.hpp"
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"

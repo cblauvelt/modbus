@@ -17,7 +17,7 @@ class ModbusClientConan(ConanFile):
     license = "MIT"
     topics = ("modbus", "asio")
     exports = ["LICENSE"]
-    exports_sources = ["CMakeLists.txt", "conan.cmake", "conanfile.py", "include/*", "src/*", "test/*"]
+    exports_sources = ["CMakeLists.txt", "conan.cmake", "conanfile.py", "modbus/*", "test/*"]
     generators = "cmake"
     settings = "os", "arch", "compiler", "build_type"
     requires = "cpool/main_eee0134063f7", "boost/1.78.0", "fmt/8.1.1"

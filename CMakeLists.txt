@@ -109,6 +109,8 @@ set(INCLUDE_FILES
 )
 
 set(SOURCE_FILES
+    "modbus/client.hpp"
+    "modbus/server.hpp"
     "modbus/core/tcp_data_unit.cpp"
     "modbus/core/messages/read_coils_request.cpp"
     "modbus/core/messages/read_discrete_inputs_request.cpp"

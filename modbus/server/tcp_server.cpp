@@ -2,6 +2,8 @@
 
 #include <string>
 
+#include <fmt/format.h>
+
 namespace modbus {
 
 tcp_server::tcp_server(asio::any_io_executor exec, request_handler_t handler,

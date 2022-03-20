@@ -50,6 +50,11 @@ tcp_data_unit::tcp_data_unit(modbus::buffer_t header, modbus::buffer_t payload,
                     std::make_move_iterator(payload.end()));
 }
 
+void tcp_data_unit::set_transaction_id(uint16_t transactionId) {
+    buffer_->at(0) = (uint8_t)(transactionId >> 8);
+    buffer_->at(1) = (uint8_t)(transactionId & 0x00FF);
+}
+
 uint16_t tcp_data_unit::transaction_id() const {
     uint16_t transactionId = buffer_->at(0) << 8;
     transactionId += buffer_->at(1);

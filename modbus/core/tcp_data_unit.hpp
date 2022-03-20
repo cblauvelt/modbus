@@ -92,6 +92,11 @@ class tcp_data_unit {
     tcp_data_unit& operator=(tcp_data_unit&&) noexcept = default;
 
     /**
+     * @brief Updates the transaction ID.
+     */
+    void set_transaction_id(uint16_t transactionId);
+
+    /**
      * @return The transaction ID assigned during creation of the object.
      */
     uint16_t transaction_id() const;

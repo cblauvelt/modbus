@@ -101,8 +101,15 @@ class tcp_client {
     validate_response(const tcp_data_unit& requestDataUnit,
                       const tcp_data_unit& responseDataUnit);
 
-    [[nodiscard]] awaitable<cpool::error>
+    [[nodiscard]] awaitable<batteries::errors::error>
     clear_buffer(cpool::tcp_connection* connection);
+
+  private:
+    std::unique_ptr<cpool::tcp_connection> connection_ctor();
+
+    [[nodiscard]] awaitable<batteries::errors::error>
+    on_connection_state_change(cpool::tcp_connection* conn,
+                               const cpool::client_connection_state state);
 
   private:
     /// The io_service that is used to schedule asynchronous events.

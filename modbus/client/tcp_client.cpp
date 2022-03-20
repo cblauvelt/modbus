@@ -8,28 +8,19 @@ tcp_client::tcp_client(cpool::net::any_io_executor exec, client_config config)
     , con_pool_(nullptr)
     , transaction_id_(1)
     , on_log_(config_.logging_handler) {
-    auto conn_creator = [&]() -> std::unique_ptr<cpool::tcp_connection> {
-        auto conn = std::make_unique<cpool::tcp_connection>(exec_, config_.host,
-                                                            config_.port);
-        return conn;
-    };
 
     con_pool_ = std::make_unique<cpool::connection_pool<cpool::tcp_connection>>(
-        exec_, conn_creator, config_.max_connections);
+        exec_, std::bind(&tcp_client::connection_ctor, this),
+        config_.max_connections);
 }
 
 void tcp_client::set_config(client_config config) {
     config_ = config;
     on_log_ = config.logging_handler;
 
-    auto conn_creator = [&]() -> std::unique_ptr<cpool::tcp_connection> {
-        auto conn = std::make_unique<cpool::tcp_connection>(exec_, config_.host,
-                                                            config_.port);
-        return conn;
-    };
-
     con_pool_ = std::make_unique<cpool::connection_pool<cpool::tcp_connection>>(
-        exec_, conn_creator, config_.max_connections);
+        exec_, std::bind(&tcp_client::connection_ctor, this),
+        config_.max_connections);
 }
 
 client_config tcp_client::config() const { return config_; }
@@ -186,6 +177,52 @@ tcp_client::clear_buffer(cpool::tcp_connection* connection) {
     }
 
     co_return modbus_client_error_code::no_error;
+}
+
+std::unique_ptr<cpool::tcp_connection> tcp_client::connection_ctor() {
+    auto conn = std::make_unique<cpool::tcp_connection>(exec_, config_.host,
+                                                        config_.port);
+    conn->set_state_change_handler(
+        std::bind(&tcp_client::on_connection_state_change, this,
+                  std::placeholders::_1, std::placeholders::_2));
+    return conn;
+}
+
+[[nodiscard]] awaitable<batteries::errors::error>
+tcp_client::on_connection_state_change(
+    cpool::tcp_connection* conn, const cpool::client_connection_state state) {
+    switch (state) {
+    case cpool::client_connection_state::disconnected:
+        on_log_(log_level::info, fmt::format("disconnected from {0}:{1}",
+                                             conn->host(), conn->port()));
+        break;
+
+    case cpool::client_connection_state::resolving:
+        on_log_(log_level::info, fmt::format("resolving {0}", conn->host()));
+        break;
+
+    case cpool::client_connection_state::connecting:
+        on_log_(log_level::info, fmt::format("connected to {0}:{1}",
+                                             conn->host(), conn->port()));
+        break;
+
+    case cpool::client_connection_state::connected:
+        on_log_(log_level::info, fmt::format("connected to {0}:{1}",
+                                             conn->host(), conn->port()));
+        break;
+
+    case cpool::client_connection_state::disconnecting:
+        on_log_(log_level::info, fmt::format("disconnecting from {0}:{1}",
+                                             conn->host(), conn->port()));
+        break;
+
+    default:
+        on_log_(
+            log_level::warn,
+            fmt::format("unknown client_connection_state: {0}", (int)state));
+    }
+
+    co_return batteries::errors::error();
 }
 
 } // namespace modbus

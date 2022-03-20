@@ -1,3 +1,5 @@
+#include <fmt/format.h>
+
 #include "modbus/server/tcp_session.hpp"
 #include "modbus/server/tcp_session_manager.hpp"
 

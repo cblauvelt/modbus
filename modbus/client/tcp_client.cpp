@@ -58,6 +58,8 @@ tcp_client::send_request(const tcp_data_unit& request,
     tcp_data_unit response;
     do {
         std::tie(response, error) = co_await read_response(connection);
+        on_log_(log_level::debug, fmt::format("received response with ID {}",
+                                              response.transaction_id()));
     } while (!error && response.transaction_id() < request.transaction_id());
 
     connection->expires_never();
@@ -202,7 +204,7 @@ tcp_client::on_connection_state_change(
         break;
 
     case cpool::client_connection_state::connecting:
-        on_log_(log_level::info, fmt::format("connected to {0}:{1}",
+        on_log_(log_level::info, fmt::format("connecting to {0}:{1}",
                                              conn->host(), conn->port()));
         break;
 

@@ -727,6 +727,7 @@ awaitable<void> run_slow_server_test(asio::io_context& ctx, tcp_server& server,
     uint16_t num_read_reg = 2;
 
     // read input registers
+    print_logging_handler(modbus::log_level::trace, "Sending first request");
     auto [response, error] = co_await client.send_request(
         client.create_request(
             read_input_registers_request{unit_id, start_address, num_read_reg}),
@@ -736,6 +737,7 @@ awaitable<void> run_slow_server_test(asio::io_context& ctx, tcp_server& server,
     EXPECT_EQ(error.value(), (int)boost::asio::error::timed_out);
     EXPECT_EQ(response.type(), message_type::invalid_pdu_type);
 
+    print_logging_handler(modbus::log_level::trace, "Sending second request");
     auto request = client.create_request(
         read_holding_registers_request{unit_id, start_address, num_read_reg});
     std::tie(response, error) = co_await client.send_request(request);

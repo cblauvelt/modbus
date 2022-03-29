@@ -29,7 +29,9 @@ enum class modbus_client_error_code : uint8_t {
     invalid_response,
     /// Disconnected The client was disconnected. This could be from the server
     /// or as a result of a call to disconnect.
-    disconnected
+    disconnected,
+    /// stopped The client has been stopped. No more requests should be sent to the client.
+    stopped
 };
 
 enum class modbus_server_error_code : uint8_t {

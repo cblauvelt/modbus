@@ -30,7 +30,11 @@ uint16_t tcp_client::reserve_transaction_id() { return transaction_id_++; }
 awaitable<read_response_t>
 tcp_client::send_request(const tcp_data_unit& request,
                          std::chrono::milliseconds timeout) {
+    on_log_(modbus::log_level::trace, fmt::format("getting connection - connections {} - idle {}", con_pool_->size(), con_pool_->size_idle()));
     auto connection = co_await con_pool_->get_connection();
+    if(connection == nullptr) {
+        co_return read_response_t(tcp_data_unit(), cpool::error(modbus_client_error_code::stopped));
+    }
 
     // clear buffer to remove responses that may have appeared after a timeout
     auto error = co_await clear_buffer(connection);

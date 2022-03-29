@@ -40,6 +40,8 @@ struct modbus_client_error_code_category : std::error_category {
                    "checks";
         case modbus_client_error_code::disconnected:
             return "The client was disconnected";
+        case modbus_client_error_code::stopped:
+            return "The client was stopped";
         default:
             return "(unrecognized error)";
         }

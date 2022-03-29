@@ -141,6 +141,13 @@ set(SOURCE_FILES
     "modbus/server/tcp_session.cpp"
     )
 
+# Extra debugging
+option(CPOOL_TRACE_LOGGING "Extended cpool debug prints" OFF)
+message("-- CPOOL_TRACE_LOGGING is ${CPOOL_TRACE_LOGGING}")
+if(CPOOL_TRACE_LOGGING)
+    add_compile_definitions(CPOOL_TRACE_LOGGING)
+endif(CPOOL_TRACE_LOGGING)
+
 add_library(${TARGET_NAME} STATIC ${SOURCE_FILES})
 
 target_link_libraries(${TARGET_NAME} ${CONAN_LIBS})

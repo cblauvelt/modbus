@@ -22,8 +22,8 @@ class ModbusClientConan(ConanFile):
     settings = "os", "arch", "compiler", "build_type"
     requires = "cpool/main_b956b06e9403", "boost/1.78.0", "fmt/8.1.1"
     build_requires = "gtest/cci.20210126"
-    options = {"cxx_standard": [20], "build_testing": [True, False]}
-    default_options = {"cxx_standard": 20, "build_testing": True}
+    options = {"cxx_standard": [20], "build_testing": [True, False], "trace_logging": [True, False]}
+    default_options = {"cxx_standard": 20, "build_testing": True, "trace_logging": False}
     
     def config_options(self):
         if self.settings.os == "Windows":
@@ -50,6 +50,7 @@ class ModbusClientConan(ConanFile):
         cmake = CMake(self)
         cmake.definitions["CMAKE_CXX_STANDARD"] = self.options.cxx_standard
         cmake.definitions["BUILD_TESTING"] = self.options.build_testing
+        cmake.definitions["CPOOL_TRACE_LOGGING"] = self.options.trace_logging
         cmake.configure()
         cmake.build()
         cmake.test()

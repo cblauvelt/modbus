@@ -30,10 +30,13 @@ uint16_t tcp_client::reserve_transaction_id() { return transaction_id_++; }
 awaitable<read_response_t>
 tcp_client::send_request(const tcp_data_unit& request,
                          std::chrono::milliseconds timeout) {
-    on_log_(modbus::log_level::trace, fmt::format("getting connection - connections {} - idle {}", con_pool_->size(), con_pool_->size_idle()));
+    on_log_(modbus::log_level::trace,
+            fmt::format("getting connection - connections {} - idle {}",
+                        con_pool_->size(), con_pool_->size_idle()));
     auto connection = co_await con_pool_->get_connection();
-    if(connection == nullptr) {
-        co_return read_response_t(tcp_data_unit(), cpool::error(modbus_client_error_code::stopped));
+    if (connection == nullptr) {
+        co_return read_response_t(
+            tcp_data_unit(), cpool::error(modbus_client_error_code::stopped));
     }
 
     // clear buffer to remove responses that may have appeared after a timeout
@@ -45,7 +48,6 @@ tcp_client::send_request(const tcp_data_unit& request,
     // setup timeout
     on_log_(log_level::trace,
             fmt::format("setting timeout of {}ms", timeout.count()));
-    connection->expires_after(timeout);
 
     auto buf = request.buffer();
 
@@ -56,13 +58,16 @@ tcp_client::send_request(const tcp_data_unit& request,
         co_return read_response_t(tcp_data_unit(), error);
     }
 
+    // set timeout for response
+    connection->expires_after(timeout);
+
     // we've cleared the buffer but a response could have come in between
     // clearing the buffer and reading the response from our request iterate
     // until we've received our response or timedout
     tcp_data_unit response;
     do {
         std::tie(response, error) = co_await read_response(connection);
-        if(error) { 
+        if (error) {
             break;
         }
         on_log_(log_level::debug, fmt::format("received response with ID {}",
@@ -84,6 +89,8 @@ tcp_client::send_request(cpool::tcp_connection* connection,
     auto [write_error, bytes_written] =
         co_await connection->async_write(asio::buffer(buf));
     if (write_error) {
+        on_log_(modbus::log_level::debug,
+                fmt::format("write_error: {}", write_error.message()));
         co_return write_error;
     }
     if (bytes_written != buf.size()) {

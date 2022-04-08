@@ -20,9 +20,9 @@ class ModbusClientConan(ConanFile):
     exports_sources = ["CMakeLists.txt", "conan.cmake", "conanfile.py", "modbus/*", "test/*"]
     generators = "cmake"
     settings = "os", "arch", "compiler", "build_type"
-    requires = "cpool/main_b956b06e9403", "boost/1.78.0", "fmt/8.1.1"
+    requires = "cpool/main_92aca5ae6c1c", "boost/1.78.0", "fmt/8.1.1"
     build_requires = "gtest/cci.20210126"
-    options = {"cxx_standard": [20], "build_testing": [True, False], "trace_logging": [True, False]}
+    options = {"cxx_standard": [20,23], "build_testing": [True, False], "trace_logging": [True, False]}
     default_options = {"cxx_standard": 20, "build_testing": True, "trace_logging": False}
     
     def config_options(self):
@@ -39,7 +39,7 @@ class ModbusClientConan(ConanFile):
         return re.sub(r'^v', '', version)
 
     def sanitize_branch(self, branch):
-        return re.sub(r'/', '_', branch)
+        return re.sub(r'/', '_', branch)[:12]
 
     def set_version(self):
         git = tools.Git(folder=self.recipe_folder)

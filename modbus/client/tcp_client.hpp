@@ -71,7 +71,7 @@ class tcp_client {
      */
     [[nodiscard]] awaitable<read_response_t>
     send_request(const tcp_data_unit& request,
-                 std::chrono::milliseconds timeout = 5s);
+                 std::chrono::milliseconds timeout = std::chrono::milliseconds::max);
 
     /**
      * @brief Sends the request.

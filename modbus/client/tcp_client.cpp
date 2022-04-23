@@ -47,7 +47,10 @@ tcp_client::send_request(const tcp_data_unit& request,
 
     // setup timeout
     on_log_(log_level::trace,
-            fmt::format("setting timeout of {}ms", timeout.count()));
+            fmt::format("setting read timeout of {}ms", timeout.count()));
+
+    // set timeout for response
+    connection->expires_after(timeout);
 
     auto buf = request.buffer();
 
@@ -55,11 +58,12 @@ tcp_client::send_request(const tcp_data_unit& request,
                                           request.transaction_id()));
     error = co_await send_request(connection, *buf);
     if (error) {
+        if (error == boost::system::error_code(cpool::net::error::timed_out)) {
+            co_return read_response_t(tcp_data_unit(),
+                                      modbus_client_error_code::write_timeout);
+        }
         co_return read_response_t(tcp_data_unit(), error);
     }
-
-    // set timeout for response
-    connection->expires_after(timeout);
 
     // we've cleared the buffer but a response could have come in between
     // clearing the buffer and reading the response from our request iterate
@@ -167,7 +171,7 @@ tcp_client::validate_response(const tcp_data_unit& requestDataUnit,
         }
     }
 
-    return modbus_client_error_code::no_error;
+    return modbus_client_error_code::success;
 }
 
 awaitable<cpool::error>
@@ -192,7 +196,7 @@ tcp_client::clear_buffer(cpool::tcp_connection* connection) {
         }
     }
 
-    co_return modbus_client_error_code::no_error;
+    co_return modbus_client_error_code::success;
 }
 
 std::unique_ptr<cpool::tcp_connection> tcp_client::connection_ctor() {

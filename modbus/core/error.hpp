@@ -5,7 +5,7 @@
 namespace modbus {
 enum class modbus_error_code : uint8_t {
     /// no_error No error has occurred
-    no_error = 0,
+    success = 0,
     /// not_supported The requested action is not yet supported
     not_supported,
     /// An exception was thrown and caught by the program
@@ -21,22 +21,25 @@ enum class modbus_error_code : uint8_t {
 
 enum class modbus_client_error_code : uint8_t {
     /// no_error No error has occurred
-    no_error = 0,
-    /// timeout_expired The timeout for receiving a response has expired
-    timeout_expired,
+    success = 0,
+    /// write_timeout The timeout for writing the request has expired
+    write_timeout,
+    /// read_timeout The timeout for receiving a response has expired
+    read_timeout,
     /// InvalidResponse A response was received that does not pass verification
     /// checks.
     invalid_response,
     /// Disconnected The client was disconnected. This could be from the server
     /// or as a result of a call to disconnect.
     disconnected,
-    /// stopped The client has been stopped. No more requests should be sent to the client.
+    /// stopped The client has been stopped. No more requests should be sent to
+    /// the client.
     stopped
 };
 
 enum class modbus_server_error_code : uint8_t {
     /// no_error No error has occurred
-    no_error = 0,
+    success = 0,
     /// ExceededMaxSessions The maximum number of sessions were exceeded.
     exceeded_max_sessions
 };

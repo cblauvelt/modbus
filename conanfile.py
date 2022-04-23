@@ -20,7 +20,7 @@ class ModbusClientConan(ConanFile):
     exports_sources = ["CMakeLists.txt", "conan.cmake", "conanfile.py", "modbus/*", "test/*"]
     generators = "cmake"
     settings = "os", "arch", "compiler", "build_type"
-    requires = "cpool/main_ee1c21a42d7a", "boost/1.78.0", "fmt/8.1.1"
+    requires = "cpool/main_92aca5ae6c1c", "boost/1.78.0", "fmt/8.1.1", "abseil/20211102.0"
     build_requires = "gtest/cci.20210126"
     options = {"cxx_standard": [20,23], "build_testing": [True, False], "trace_logging": [True, False]}
     default_options = {"cxx_standard": 20, "build_testing": True, "trace_logging": False}

@@ -1,5 +1,7 @@
 #include "modbus/client/tcp_client.hpp"
 
+#include <absl/cleanup/cleanup.h>
+
 namespace modbus {
 
 tcp_client::tcp_client(cpool::net::any_io_executor exec, client_config config)
@@ -39,18 +41,26 @@ tcp_client::send_request(const tcp_data_unit& request,
             tcp_data_unit(), cpool::error(modbus_client_error_code::stopped));
     }
 
+    auto defer_release = absl::Cleanup([&]() {
+        if (connection != nullptr) {
+            connection->expires_never();
+
+            con_pool_->release_connection(connection);
+        }
+    });
+
     // clear buffer to remove responses that may have appeared after a timeout
     auto error = co_await clear_buffer(connection);
     if (error) {
         co_return read_response_t(tcp_data_unit(), error);
     }
 
-    // setup timeout
-    on_log_(log_level::trace,
-            fmt::format("setting read timeout of {}ms", timeout.count()));
-
     // set timeout for response
-    connection->expires_after(timeout);
+    if (timeout != std::chrono::milliseconds::max()) {
+        on_log_(log_level::trace,
+                fmt::format("setting read timeout of {}ms", timeout.count()));
+        connection->expires_after(timeout);
+    }
 
     auto buf = request.buffer();
 
@@ -78,9 +88,9 @@ tcp_client::send_request(const tcp_data_unit& request,
                                               response.transaction_id()));
     } while (!error && response.transaction_id() < request.transaction_id());
 
-    connection->expires_never();
-
-    con_pool_->release_connection(connection);
+    if (error == boost::system::error_code(cpool::net::error::timed_out)) {
+        error = cpool::error(modbus_client_error_code::read_timeout);
+    }
 
     co_return read_response_t(response, error);
 }

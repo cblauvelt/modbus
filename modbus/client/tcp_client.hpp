@@ -69,9 +69,9 @@ class tcp_client {
      * @return awaitable<read_response_t> An awaitable tuple
      * with the response and an error if any
      */
-    [[nodiscard]] awaitable<read_response_t>
-    send_request(const tcp_data_unit& request,
-                 std::chrono::milliseconds timeout = std::chrono::milliseconds::max);
+    [[nodiscard]] awaitable<read_response_t> send_request(
+        const tcp_data_unit& request,
+        std::chrono::milliseconds timeout = std::chrono::milliseconds::max());
 
     /**
      * @brief Sends the request.

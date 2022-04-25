@@ -406,8 +406,8 @@ awaitable<tcp_data_unit> slow_handler(const tcp_data_unit& requestDataUnit) {
                                exception_code_t::illegal_function));
     }
 
-    print_logging_handler(log_level::trace,
-                          fmt::format("Waiting {}ms", SERVER_WAIT.count()));
+    print_logging_handler(log_level::trace, fmt::format("[Server] Waiting {}ms",
+                                                        SERVER_WAIT.count()));
     co_await wait_for(SERVER_WAIT);
 
     if (function_code == function_code_t::read_holding_registers) {
@@ -687,6 +687,8 @@ awaitable<void> run_input_reg_tests(tcp_client& client) {
     EXPECT_EQ(data.buffer_length(), num_read_reg * 2);
     EXPECT_EQ(data.getUINT16(0), 0xF00FU);
     EXPECT_EQ(data.getUINT16(1), 0xF00FU);
+
+    co_return;
 }
 
 awaitable<void> run_server_test(asio::io_context& ctx, tcp_server& server,
@@ -734,8 +736,11 @@ awaitable<void> run_slow_server_test(asio::io_context& ctx, tcp_server& server,
         SERVER_WAIT - 100ms);
 
     EXPECT_TRUE(error);
-    EXPECT_EQ(error.value(), (int)boost::asio::error::timed_out);
+    EXPECT_EQ(error.value(), (int)modbus_client_error_code::read_timeout);
     EXPECT_EQ(response.type(), message_type::invalid_pdu_type);
+    if (error) {
+        print_logging_handler(log_level::error, error.message());
+    }
 
     print_logging_handler(modbus::log_level::trace, "Sending second request");
     auto request = client.create_request(
@@ -743,8 +748,7 @@ awaitable<void> run_slow_server_test(asio::io_context& ctx, tcp_server& server,
     std::tie(response, error) = co_await client.send_request(request);
     EXPECT_FALSE(error);
     if (error) {
-        print_logging_handler(log_level::error, error.message()),
-            SERVER_WAIT + 300ms;
+        print_logging_handler(log_level::error, error.message());
     }
     EXPECT_EQ(request.transaction_id(), response.transaction_id());
     auto optionalResponse = response.pdu<read_holding_registers_response>();
@@ -788,42 +792,6 @@ TEST(tcp_server_test, server_test) {
     co_spawn(ctx, run_server_test(std::ref(ctx), server, client), detached);
 
     ctx.run();
-}
-
-TEST(tcp_server_test, server_test_multi_thread) {
-    int num_threads = 8;
-    asio::io_context ctx(num_threads);
-    std::vector<std::jthread> threads;
-
-    auto host = get_env_var(ENV_PORT).value_or(DEFAULT_HOST);
-    auto portString = get_env_var(ENV_PORT).value_or(DEFAULT_PORT);
-    uint16_t port = std::stoi(portString);
-
-    // start the server
-    server_config sconfig =
-        server_config{host, port}.set_logging_handler(print_logging_handler);
-    request_handler handler;
-    tcp_server server(ctx.get_executor(), std::ref(handler), sconfig);
-    co_spawn(ctx, server.start(), detached);
-
-    // start the client
-    client_config cconfig =
-        client_config(host, port).set_logging_handler(print_logging_handler);
-    tcp_client client(ctx.get_executor(), cconfig);
-
-    // run the test
-    for (int i = 0; i < num_threads - 1; i++) {
-        co_spawn(ctx, run_server_test(std::ref(ctx), server, client, false),
-                 detached);
-        threads.push_back(std::jthread([&]() { ctx.run(); }));
-    }
-    co_spawn(ctx, run_server_test(std::ref(ctx), server, client), detached);
-
-    ctx.run();
-
-    for (auto& thread : threads) {
-        thread.join();
-    }
 }
 
 TEST(tcp_server_test, slow_server_test) {

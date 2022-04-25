@@ -9,6 +9,8 @@ struct modbus_error_code_category : std::error_category {
 
     std::string message(int ev) const override {
         switch (static_cast<modbus_error_code>(ev)) {
+        case modbus_error_code::success:
+            return "Success";
         case modbus_error_code::not_supported:
             return "The requested action is not yet supported";
         case modbus_error_code::internal_error:
@@ -33,13 +35,19 @@ struct modbus_client_error_code_category : std::error_category {
 
     std::string message(int ev) const override {
         switch (static_cast<modbus_client_error_code>(ev)) {
-        case modbus_client_error_code::timeout_expired:
+        case modbus_client_error_code::success:
+            return "Success";
+        case modbus_client_error_code::write_timeout:
+            return "The timeout for sending the request has expired";
+        case modbus_client_error_code::read_timeout:
             return "The timeout for receiving a response has expired";
         case modbus_client_error_code::invalid_response:
             return "A response was received that does not pass verification "
                    "checks";
         case modbus_client_error_code::disconnected:
             return "The client was disconnected";
+        case modbus_client_error_code::stopped:
+            return "The client was stopped";
         default:
             return "(unrecognized error)";
         }
@@ -48,11 +56,13 @@ struct modbus_client_error_code_category : std::error_category {
 
 struct modbus_server_error_code_category : std::error_category {
     const char* name() const noexcept override {
-        return "modbus_server_error_code";
+        return "ModbusServerErrorCode";
     }
 
     std::string message(int ev) const override {
         switch (static_cast<modbus_server_error_code>(ev)) {
+        case modbus_server_error_code::success:
+            return "Success";
         case modbus_server_error_code::exceeded_max_sessions:
             return "The maximum number of sessions were exceeded";
         default:

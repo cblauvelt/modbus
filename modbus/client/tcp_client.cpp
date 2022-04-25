@@ -1,5 +1,7 @@
 #include "modbus/client/tcp_client.hpp"
 
+#include <absl/cleanup/cleanup.h>
+
 namespace modbus {
 
 tcp_client::tcp_client(cpool::net::any_io_executor exec, client_config config)
@@ -30,7 +32,22 @@ uint16_t tcp_client::reserve_transaction_id() { return transaction_id_++; }
 awaitable<read_response_t>
 tcp_client::send_request(const tcp_data_unit& request,
                          std::chrono::milliseconds timeout) {
+    on_log_(modbus::log_level::trace,
+            fmt::format("getting connection - connections {} - idle {}",
+                        con_pool_->size(), con_pool_->size_idle()));
     auto connection = co_await con_pool_->get_connection();
+    if (connection == nullptr) {
+        co_return read_response_t(
+            tcp_data_unit(), cpool::error(modbus_client_error_code::stopped));
+    }
+
+    auto defer_release = absl::Cleanup([&]() {
+        if (connection != nullptr) {
+            connection->expires_never();
+
+            con_pool_->release_connection(connection);
+        }
+    });
 
     // clear buffer to remove responses that may have appeared after a timeout
     auto error = co_await clear_buffer(connection);
@@ -38,10 +55,12 @@ tcp_client::send_request(const tcp_data_unit& request,
         co_return read_response_t(tcp_data_unit(), error);
     }
 
-    // setup timeout
-    on_log_(log_level::trace,
-            fmt::format("setting timeout of {}ms", timeout.count()));
-    connection->expires_after(timeout);
+    // set timeout for response
+    if (timeout != std::chrono::milliseconds::max()) {
+        on_log_(log_level::trace,
+                fmt::format("setting read timeout of {}ms", timeout.count()));
+        connection->expires_after(timeout);
+    }
 
     auto buf = request.buffer();
 
@@ -49,6 +68,10 @@ tcp_client::send_request(const tcp_data_unit& request,
                                           request.transaction_id()));
     error = co_await send_request(connection, *buf);
     if (error) {
+        if (error == boost::system::error_code(cpool::net::error::timed_out)) {
+            co_return read_response_t(tcp_data_unit(),
+                                      modbus_client_error_code::write_timeout);
+        }
         co_return read_response_t(tcp_data_unit(), error);
     }
 
@@ -58,16 +81,16 @@ tcp_client::send_request(const tcp_data_unit& request,
     tcp_data_unit response;
     do {
         std::tie(response, error) = co_await read_response(connection);
-        if(error) { 
+        if (error) {
             break;
         }
         on_log_(log_level::debug, fmt::format("received response with ID {}",
                                               response.transaction_id()));
     } while (!error && response.transaction_id() < request.transaction_id());
 
-    connection->expires_never();
-
-    con_pool_->release_connection(connection);
+    if (error == boost::system::error_code(cpool::net::error::timed_out)) {
+        error = cpool::error(modbus_client_error_code::read_timeout);
+    }
 
     co_return read_response_t(response, error);
 }
@@ -80,6 +103,8 @@ tcp_client::send_request(cpool::tcp_connection* connection,
     auto [write_error, bytes_written] =
         co_await connection->async_write(asio::buffer(buf));
     if (write_error) {
+        on_log_(modbus::log_level::debug,
+                fmt::format("write_error: {}", write_error.message()));
         co_return write_error;
     }
     if (bytes_written != buf.size()) {
@@ -156,7 +181,7 @@ tcp_client::validate_response(const tcp_data_unit& requestDataUnit,
         }
     }
 
-    return modbus_client_error_code::no_error;
+    return modbus_client_error_code::success;
 }
 
 awaitable<cpool::error>
@@ -181,7 +206,7 @@ tcp_client::clear_buffer(cpool::tcp_connection* connection) {
         }
     }
 
-    co_return modbus_client_error_code::no_error;
+    co_return modbus_client_error_code::success;
 }
 
 std::unique_ptr<cpool::tcp_connection> tcp_client::connection_ctor() {

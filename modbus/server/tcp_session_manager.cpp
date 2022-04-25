@@ -22,7 +22,7 @@ awaitable<std::error_code> tcp_session_manager::start(tcp_session_ptr session) {
 
     sessions_.insert(session);
     co_spawn(exec_, session->start(), detached);
-    co_return modbus_server_error_code::no_error;
+    co_return modbus_server_error_code::success;
 }
 
 void tcp_session_manager::stop(tcp_session_ptr session) {

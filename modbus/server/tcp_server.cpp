@@ -23,10 +23,21 @@ awaitable<void> tcp_server::start() {
     auto result = co_await resolver.async_resolve(
         config_.endpoint, std::to_string(config_.port), use_awaitable);
     tcp::endpoint endpoint = *result.begin();
-    acceptor_.open(endpoint.protocol());
-    acceptor_.set_option(tcp::acceptor::reuse_address(true));
-    acceptor_.bind(endpoint);
-    acceptor_.listen();
+    on_log_(log_level::debug,
+            fmt::format("attempting to listen on {}:{}",
+                        endpoint.address().to_string(), endpoint.port()));
+    try {
+
+        acceptor_.open(endpoint.protocol());
+        acceptor_.set_option(tcp::acceptor::reuse_address(true));
+        acceptor_.bind(endpoint);
+        acceptor_.listen();
+    } catch (const std::exception& e) {
+        on_log_(log_level::error, fmt::format("listening on {}:{} failed; {}",
+                                              endpoint.address().to_string(),
+                                              endpoint.port(), e.what()));
+    }
+
     on_log_(log_level::info,
             fmt::format("listening on {}:{}", endpoint.address().to_string(),
                         endpoint.port()));

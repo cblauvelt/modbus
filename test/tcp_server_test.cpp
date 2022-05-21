@@ -12,9 +12,9 @@ using namespace std;
 const std::string DEFAULT_HOST = "127.0.0.1";
 const std::string ENV_HOST = "MODBUS_SERVER_HOST";
 const std::string ENV_SLOW_HOST = "MODBUS_SLOW_SERVER_HOST";
-const std::string DEFAULT_PORT = "503";
+const std::string DEFAULT_PORT = "5030";
 const std::string ENV_PORT = "MODBUS_SERVER_PORT";
-const std::string DEFAULT_SLOW_PORT = "504";
+const std::string DEFAULT_SLOW_PORT = "5040";
 const std::string ENV_SLOW_PORT = "MODBUS_SLOW_SERVER_PORT";
 const std::chrono::milliseconds SERVER_WAIT = 500ms;
 
@@ -778,7 +778,8 @@ TEST(tcp_server_test, server_test) {
 
     // start the server
     server_config sconfig =
-        server_config{host, port}.set_logging_handler(print_logging_handler);
+        server_config{std::string("0.0.0.0"), port}.set_logging_handler(
+            print_logging_handler);
     request_handler handler;
     tcp_server server(ctx.get_executor(), std::ref(handler), sconfig);
     co_spawn(ctx, server.start(), detached);
@@ -803,7 +804,8 @@ TEST(tcp_server_test, slow_server_test) {
 
     // start the server
     server_config sconfig =
-        server_config{host, port}.set_logging_handler(print_logging_handler);
+        server_config{std::string("0.0.0.0"), port}.set_logging_handler(
+            print_logging_handler);
     tcp_server server(ctx.get_executor(), slow_handler, sconfig);
     co_spawn(ctx, server.start(), detached);
 

@@ -126,13 +126,12 @@ inline buffer_t copy_data_bits(const buffer_t& from,
  * @param coilStatus A value representing On or Off.
  * @param coilAddress The address of the bit to write.
  */
-inline void write_coil(buffer_t& data, coil_status_t coilStatus,
-                       int coilAddress) {
+inline void write_coil(buffer_t& data, bool coilStatus, int coilAddress) {
     int startByte = coilAddress / 8;
     int startBit = coilAddress % 8;
     uint8_t byte = 1 << (startBit);
 
-    if (coilStatus == coil_status_t::on) {
+    if (coilStatus) {
         data[startByte] |= byte; // set bit
     } else {
         data[startByte] &= ~byte; // unset bit

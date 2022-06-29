@@ -17,14 +17,17 @@ class ModbusClientConan(ConanFile):
     license = "MIT"
     topics = ("modbus", "asio")
     exports = ["LICENSE"]
-    exports_sources = ["CMakeLists.txt", "conan.cmake", "conanfile.py", "modbus/*", "test/*"]
+    exports_sources = ["CMakeLists.txt", "conan.cmake",
+                       "conanfile.py", "modbus/*", "test/*"]
     generators = "cmake"
     settings = "os", "arch", "compiler", "build_type"
-    requires = "cpool/main_6c87e8e612ea", "boost/1.78.0", "fmt/8.1.1", "abseil/20211102.0"
+    requires = "cpool/main_23c5e65a0f9b", "boost/1.78.0", "fmt/8.1.1", "abseil/20211102.0"
     build_requires = "gtest/cci.20210126"
-    options = {"cxx_standard": [20,23], "build_testing": [True, False], "trace_logging": [True, False]}
-    default_options = {"cxx_standard": 20, "build_testing": True, "trace_logging": False}
-    
+    options = {"cxx_standard": [20, 23], "build_testing": [
+        True, False], "trace_logging": [True, False]}
+    default_options = {"cxx_standard": 20,
+                       "build_testing": True, "trace_logging": False}
+
     def config_options(self):
         if self.settings.os == "Windows":
             del self.options.fPIC
@@ -33,7 +36,8 @@ class ModbusClientConan(ConanFile):
         if self.settings.os == "Windows" and \
            self.settings.compiler == "Visual Studio" and \
            Version(self.settings.compiler.version.value) < "16":
-            raise ConanInvalidConfiguration("modbus does not support MSVC < 16")
+            raise ConanInvalidConfiguration(
+                "modbus does not support MSVC < 16")
 
     def sanitize_tag(self, version):
         return re.sub(r'^v', '', version)
@@ -59,6 +63,6 @@ class ModbusClientConan(ConanFile):
         self.copy("LICENSE", dst="licenses")
         self.copy("*.hpp", dst="include/modbus", src="modbus")
         self.copy("*.a", dst="lib", keep_path=False)
-        
+
     def package_info(self):
         self.cpp_info.libs = ["modbus"]

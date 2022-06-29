@@ -332,7 +332,7 @@ TEST(tcp_data_unit, read_input_registers_request_two_buffers) {
 }
 
 TEST(tcp_data_unit, write_single_register_request_struct) {
-    write_single_coil_request request{12, 172, coil_status_t::on};
+    write_single_coil_request request{12, 172, true};
     buffer_t data{0x00, 0x05, 0x00, 0x00, 0x00, 0x06,
                   0x0C, 0x05, 0x00, 0xAC, 0xFF, 0x00};
 
@@ -357,7 +357,7 @@ TEST(tcp_data_unit, write_single_register_request_struct) {
 }
 
 TEST(tcp_data_unit, write_single_coil_request_buffer) {
-    write_single_coil_request request{12, 172, coil_status_t::on};
+    write_single_coil_request request{12, 172, true};
     buffer_t data{0x00, 0x05, 0x00, 0x00, 0x00, 0x06,
                   0x0C, 0x05, 0x00, 0xAC, 0xFF, 0x00};
 
@@ -382,7 +382,7 @@ TEST(tcp_data_unit, write_single_coil_request_buffer) {
 }
 
 TEST(tcp_data_unit, write_single_coil_request_two_buffers) {
-    write_single_coil_request request{12, 172, coil_status_t::on};
+    write_single_coil_request request{12, 172, true};
     buffer_t data{0x00, 0x05, 0x00, 0x00, 0x00, 0x06,
                   0x0C, 0x05, 0x00, 0xAC, 0xFF, 0x00};
     buffer_t header{0x00, 0x05, 0x00, 0x00, 0x00, 0x06};

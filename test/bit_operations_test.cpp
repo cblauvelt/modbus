@@ -52,51 +52,51 @@ TEST(legal_address, write_single_coil) {
     vector<uint8_t> coils, expected;
 
     coils = {0x00, 0x00, 0x00};
-    write_coil(coils, coil_status_t::on, 0);
+    write_coil(coils, true, 0);
     expected = {0x01, 0x00, 0x00};
     EXPECT_EQ(coils, expected);
 
-    write_coil(coils, coil_status_t::on, 2);
+    write_coil(coils, true, 2);
     expected = {0x05, 0x00, 0x00};
     EXPECT_EQ(coils, expected);
 
-    write_coil(coils, coil_status_t::on, 8);
+    write_coil(coils, true, 8);
     expected = {0x05, 0x01, 0x00};
     EXPECT_EQ(coils, expected);
 
-    write_coil(coils, coil_status_t::on, 10);
+    write_coil(coils, true, 10);
     expected = {0x05, 0x05, 0x00};
     EXPECT_EQ(coils, expected);
 
-    write_coil(coils, coil_status_t::on, 17);
+    write_coil(coils, true, 17);
     expected = {0x05, 0x05, 0x02};
     EXPECT_EQ(coils, expected);
 
-    write_coil(coils, coil_status_t::on, 19);
+    write_coil(coils, true, 19);
     expected = {0x05, 0x05, 0x0A};
     EXPECT_EQ(coils, expected);
 
-    write_coil(coils, coil_status_t::off, 19);
+    write_coil(coils, false, 19);
     expected = {0x05, 0x05, 0x02};
     EXPECT_EQ(coils, expected);
 
-    write_coil(coils, coil_status_t::off, 17);
+    write_coil(coils, false, 17);
     expected = {0x05, 0x05, 0x00};
     EXPECT_EQ(coils, expected);
 
-    write_coil(coils, coil_status_t::off, 10);
+    write_coil(coils, false, 10);
     expected = {0x05, 0x01, 0x00};
     EXPECT_EQ(coils, expected);
 
-    write_coil(coils, coil_status_t::off, 8);
+    write_coil(coils, false, 8);
     expected = {0x05, 0x00, 0x00};
     EXPECT_EQ(coils, expected);
 
-    write_coil(coils, coil_status_t::off, 2);
+    write_coil(coils, false, 2);
     expected = {0x01, 0x00, 0x00};
     EXPECT_EQ(coils, expected);
 
-    write_coil(coils, coil_status_t::off, 0);
+    write_coil(coils, false, 0);
     expected = {0x00, 0x00, 0x00};
     EXPECT_EQ(coils, expected);
 }

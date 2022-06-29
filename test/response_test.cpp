@@ -145,18 +145,18 @@ TEST(responses, read_input_reg_response) {
 }
 
 TEST(responses, write_single_coil_response) {
-    write_single_coil_response response{17, 172, coil_status_t::on};
+    write_single_coil_response response{17, 172, true};
 
     EXPECT_EQ(response.unit_id, 17);
     EXPECT_EQ(response.start_address, 172);
-    EXPECT_EQ(response.value, coil_status_t::on);
+    EXPECT_EQ(response.value, true);
     EXPECT_EQ(response.function_code(), function_code_t::write_single_coil);
     EXPECT_EQ(response.type(), message_type::response);
 
     write_single_coil_response eqResponse = response;
-    write_single_coil_response neResponse1{18, 172, coil_status_t::on};
-    write_single_coil_response neResponse2{17, 173, coil_status_t::on};
-    write_single_coil_response neResponse3{17, 172, coil_status_t::off};
+    write_single_coil_response neResponse1{18, 172, true};
+    write_single_coil_response neResponse2{17, 173, true};
+    write_single_coil_response neResponse3{17, 172, false};
 
     EXPECT_EQ(response, eqResponse);
     EXPECT_NE(response, neResponse1);

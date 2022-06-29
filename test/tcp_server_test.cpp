@@ -179,7 +179,7 @@ struct request_handler {
 
             // Write the coil
             lock_guard<mutex> lock(memorySpaceMutex);
-            if (request.value == coil_status_t::on) {
+            if (request.value == true) {
                 write_coil(memorySpace[dataRow], request.value,
                            request.start_address);
             }
@@ -509,7 +509,7 @@ awaitable<void> run_coil_tests(tcp_client& client) {
     uint16_t start_address = 8;
     uint16_t num_read_coils = 11;
     auto [response, error] = co_await client.send_request(client.create_request(
-        write_single_coil_request{unit_id, start_address, coil_status_t::on}));
+        write_single_coil_request{unit_id, start_address, true}));
 
     EXPECT_FALSE(error);
     EXPECT_FALSE(response.is_exception());

@@ -11,12 +11,12 @@ namespace modbus {
 struct write_single_coil_request {
     uint8_t unit_id;
     uint16_t start_address;
-    coil_status_t value;
+    bool value;
 
     write_single_coil_request() = default;
 
     write_single_coil_request(uint8_t unit_id, uint16_t start_address,
-                              coil_status_t value);
+                              bool value);
 
     write_single_coil_request(const_buffer_iterator it);
 
@@ -28,7 +28,7 @@ struct write_single_coil_request {
 
     static constexpr size_t size() {
         return sizeof(unit_id) + sizeof(uint8_t) + sizeof(start_address) +
-               sizeof(value);
+               sizeof(uint16_t);
     }
 
     buffer_iterator serialize(buffer_iterator it) const;

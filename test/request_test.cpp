@@ -141,18 +141,18 @@ TEST(requests, read_input_reg_request) {
 }
 
 TEST(requests, write_single_coil_request) {
-    write_single_coil_request request{17, 172, coil_status_t::on};
+    write_single_coil_request request{17, 172, true};
 
     EXPECT_EQ(request.unit_id, 17);
     EXPECT_EQ(request.start_address, 172);
-    EXPECT_EQ(request.value, coil_status_t::on);
+    EXPECT_EQ(request.value, true);
     EXPECT_EQ(request.function_code(), function_code_t::write_single_coil);
     EXPECT_EQ(request.type(), message_type::request);
 
     write_single_coil_request eqRequest = request;
-    write_single_coil_request neRequest1{18, 172, coil_status_t::on};
-    write_single_coil_request neRequest2{17, 173, coil_status_t::on};
-    write_single_coil_request neRequest3{17, 172, coil_status_t::off};
+    write_single_coil_request neRequest1{18, 172, true};
+    write_single_coil_request neRequest2{17, 173, true};
+    write_single_coil_request neRequest3{17, 172, false};
 
     EXPECT_EQ(request, eqRequest);
     EXPECT_NE(request, neRequest1);

@@ -39,9 +39,9 @@ awaitable<void> run_coil_tests(asio::io_context& ctx, tcp_client& client,
     uint16_t start_address = 256;
     uint16_t num_read_coils = 8;
     auto [response, error] = co_await client.send_request(client.create_request(
-        write_single_coil_request{unit_id, start_address, coil_status_t::on}));
+        write_single_coil_request{unit_id, start_address, true}));
 
-    EXPECT_FALSE(error);
+    EXPECT_FALSE(error) << error.message();
     EXPECT_FALSE(response.is_exception());
 
     // read coils

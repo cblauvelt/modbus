@@ -4,7 +4,7 @@ namespace modbus {
 
 write_single_coil_request::write_single_coil_request(uint8_t unit_id,
                                                      uint16_t start_address,
-                                                     coil_status_t value) {
+                                                     bool value) {
     this->unit_id = unit_id;
     this->start_address = start_address;
     this->value = value;
@@ -20,7 +20,7 @@ write_single_coil_request::write_single_coil_request(const_buffer_iterator it) {
     value = *it++ << 8;
     value += *it;
 
-    this->value = (coil_status_t)value;
+    this->value = ((coil_status_t)value == coil_status_t::on);
 }
 
 buffer_iterator write_single_coil_request::serialize(buffer_iterator it) const {
@@ -30,7 +30,7 @@ buffer_iterator write_single_coil_request::serialize(buffer_iterator it) const {
     *it++ = start_address & 0x00FF;
 
     // Set coil status
-    *it++ = (value == coil_status_t::on) ? 0xFF : 0x00;
+    *it++ = (value) ? 0xFF : 0x00;
     *it++ = 0x00;
 
     return it;

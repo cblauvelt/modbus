@@ -60,6 +60,8 @@ tcp_client::send_request(const tcp_data_unit& request,
         on_log_(log_level::trace,
                 fmt::format("setting read timeout of {}ms", timeout.count()));
         connection->expires_after(timeout);
+    } else {
+        connection->expires_never();
     }
 
     auto buf = request.buffer();
